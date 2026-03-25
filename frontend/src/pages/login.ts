@@ -1,0 +1,122 @@
+import { Button } from "../components/Button";
+import { Card } from "../components/Card";
+import { ErrorMessage } from "../components/ErrorMessage";
+import { Input } from "../components/Input";
+import { getMockAccounts, login } from "../services/auth";
+import { navigateTo, ROUTES } from "../utils/router";
+
+export function renderLoginPage(container: HTMLElement): void {
+  const accounts = getMockAccounts();
+
+  container.innerHTML = `
+    <main class="min-h-screen bg-slate-950 px-5 py-10 text-slate-100 sm:px-8">
+      <div class="mx-auto flex min-h-[calc(100vh-80px)] max-w-6xl items-center justify-center">
+        <div class="w-full max-w-xl">
+          ${Card({
+            className: "p-8 sm:p-10",
+            children: `
+              <div class="mb-8">
+                <p class="text-sm uppercase tracking-[0.3em] text-sky-400">AutoPoint</p>
+                <h1 class="mt-4 text-5xl font-bold tracking-tight text-white">Bienvenido de nuevo</h1>
+              </div>
+
+              <form id="login-form" class="space-y-5">
+                ${Input({
+                  id: "email",
+                  label: "Correo electrónico",
+                  type: "email",
+                  placeholder: "buyer@autopoint.com",
+                  hint: "Usá alguna de las cuentas mock indicadas abajo.",
+                })}
+
+                ${Input({
+                  id: "password",
+                  label: "Contraseña",
+                  type: "password",
+                  placeholder: "1234",
+                })}
+
+                ${ErrorMessage({
+                  id: "login-error",
+                  hidden: true,
+                  message: "",
+                })}
+
+                ${Button({
+                  id: "login-submit",
+                  text: "Iniciar sesión",
+                  type: "submit",
+                  variant: "primary",
+                  fullWidth: true,
+                })}
+              </form>
+
+              <div class="mt-6 grid gap-3 sm:grid-cols-2">
+                ${Button({
+                  id: "fill-buyer",
+                  text: "Usar buyer demo",
+                  variant: "secondary",
+                  fullWidth: true,
+                })}
+                ${Button({
+                  id: "fill-seller",
+                  text: "Usar seller demo",
+                  variant: "secondary",
+                  fullWidth: true,
+                })}
+              </div>
+
+              <div class="mt-6 text-center text-sm text-slate-400">
+                ¿Todavía no tenés cuenta?
+                <button id="go-register" class="ml-1 font-medium text-sky-400 hover:text-sky-300">
+                  Crear cuenta
+                </button>
+              </div>
+            `,
+          })}
+        </div>
+      </div>
+    </main>
+  `;
+
+  const form = document.querySelector<HTMLFormElement>("#login-form");
+  const emailInput = document.querySelector<HTMLInputElement>("#email");
+  const passwordInput = document.querySelector<HTMLInputElement>("#password");
+  const errorBox = document.querySelector<HTMLDivElement>("#login-error");
+  const errorText = errorBox?.querySelector("p");
+
+  if (!form || !emailInput || !passwordInput || !errorBox || !errorText) {
+    return;
+  }
+
+  document.querySelector("#fill-buyer")?.addEventListener("click", () => {
+    emailInput.value = "buyer@autopoint.com";
+    passwordInput.value = "1234";
+    errorBox.classList.add("hidden");
+  });
+
+  document.querySelector("#fill-seller")?.addEventListener("click", () => {
+    emailInput.value = "seller@autopoint.com";
+    passwordInput.value = "1234";
+    errorBox.classList.add("hidden");
+  });
+
+  document.querySelector("#go-register")?.addEventListener("click", () => {
+    navigateTo(ROUTES.register);
+  });
+
+  form.addEventListener("submit", (event) => {
+    event.preventDefault();
+
+    const result = login(emailInput.value, passwordInput.value);
+
+    if (!result.ok) {
+      errorText.textContent = result.message;
+      errorBox.classList.remove("hidden");
+      return;
+    }
+
+    errorBox.classList.add("hidden");
+    navigateTo(ROUTES.home);
+  });
+}
