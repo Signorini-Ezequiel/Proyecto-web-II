@@ -14,7 +14,7 @@ export function ErrorMessage({
       ${id ? `id="${id}"` : ""}
       class="${
         hidden ? "hidden" : "flex"
-      } items-start gap-3 rounded-2xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-200"
+      } items-start gap-3 rounded-2xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-700"
       role="alert"
       aria-live="polite"
     >

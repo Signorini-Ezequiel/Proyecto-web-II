@@ -2,22 +2,20 @@ import { Button } from "../components/Button";
 import { Card } from "../components/Card";
 import { ErrorMessage } from "../components/ErrorMessage";
 import { Input } from "../components/Input";
-import { getMockAccounts, login } from "../services/auth";
+import { login } from "../services/auth";
 import { navigateTo, ROUTES } from "../utils/router";
 
 export function renderLoginPage(container: HTMLElement): void {
-  const accounts = getMockAccounts();
-
   container.innerHTML = `
-    <main class="min-h-screen bg-slate-950 px-5 py-10 text-slate-100 sm:px-8">
+    <main class="min-h-screen app-bg px-5 py-10 text-slate-900 sm:px-8">
       <div class="mx-auto flex min-h-[calc(100vh-80px)] max-w-6xl items-center justify-center">
         <div class="w-full max-w-xl">
           ${Card({
             className: "p-8 sm:p-10",
             children: `
               <div class="mb-8">
-                <p class="text-sm uppercase tracking-[0.3em] text-sky-400">AutoPoint</p>
-                <h1 class="mt-4 text-5xl font-bold tracking-tight text-white">Bienvenido de nuevo</h1>
+                <p class="text-sm uppercase tracking-[0.3em] text-[#e76e1d]">AutoPoint</p>
+                <h1 class="mt-4 text-5xl font-bold tracking-tight text-slate-900">Bienvenido de nuevo</h1>
               </div>
 
               <form id="login-form" class="space-y-5">
@@ -66,9 +64,9 @@ export function renderLoginPage(container: HTMLElement): void {
                 })}
               </div>
 
-              <div class="mt-6 text-center text-sm text-slate-400">
+              <div class="mt-6 text-center text-sm text-slate-600">
                 ¿Todavía no tenés cuenta?
-                <button id="go-register" class="ml-1 font-medium text-sky-400 hover:text-sky-300">
+                <button id="go-register" class="ml-1 font-medium text-[#e76e1d] hover:text-[#e76e1d]">
                   Crear cuenta
                 </button>
               </div>

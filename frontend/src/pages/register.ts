@@ -9,16 +9,16 @@ import { navigateTo, ROUTES } from "../utils/router";
 
 export function renderRegisterPage(container: HTMLElement): void {
   container.innerHTML = `
-    <main class="min-h-screen bg-slate-950 px-5 py-10 text-slate-100 sm:px-8">
+    <main class="min-h-screen app-bg px-5 py-10 text-slate-900 sm:px-8">
       <div class="mx-auto flex min-h-[calc(100vh-80px)] max-w-6xl items-center justify-center">
         <div class="w-full max-w-xl">
           ${Card({
             className: "p-8 sm:p-10",
             children: `
               <div class="mb-8">
-                <p class="text-sm uppercase tracking-[0.3em] text-sky-400">AutoPoint</p>
-                <h1 class="mt-4 text-4xl font-bold tracking-tight text-white">Crear cuenta</h1>
-                <p class="mt-4 text-sm leading-7 text-slate-400">
+                <p class="text-sm uppercase tracking-[0.3em] text-[#e76e1d]">AutoPoint</p>
+                <h1 class="mt-4 text-4xl font-bold tracking-tight text-slate-900">Crear cuenta</h1>
+                <p class="mt-4 text-sm leading-7 text-slate-600">
                   Registrate como buyer para buscar y comparar autos, o como seller para publicarlos.
                 </p>
               </div>
@@ -68,9 +68,9 @@ export function renderRegisterPage(container: HTMLElement): void {
                 })}
               </form>
 
-              <div class="mt-6 text-center text-sm text-slate-400">
+              <div class="mt-6 text-center text-sm text-slate-600">
                 ¿Ya tenés cuenta?
-                <button id="go-login" class="ml-1 font-medium text-sky-400 hover:text-sky-300">
+                <button id="go-login" class="ml-1 font-medium text-[#e76e1d] hover:text-[#e76e1d]">
                   Iniciar sesión
                 </button>
               </div>

@@ -22,12 +22,12 @@ export function Button({
 
   const variantClassesByType: Record<ButtonVariant, string> = {
     primary:
-      "bg-sky-500 text-white shadow-lg shadow-sky-950/30 hover:bg-sky-400",
+      "bg-[#e76e1d] text-white shadow-lg shadow-[#e76e1d]/30 hover:bg-[#c05511]",
     secondary:
-      "border border-slate-700 bg-slate-800 text-slate-100 hover:bg-slate-700",
-    ghost: "bg-transparent text-slate-200 hover:bg-slate-800/70",
+      "border border-[#e76e1d] bg-white text-[#0f172a] hover:bg-[#fff1e6]",
+    ghost: "bg-transparent text-[#0f172a] hover:bg-[#fff4eb]",
     danger:
-      "border border-red-500/30 bg-red-500/10 text-red-200 hover:bg-red-500/20",
+      "border border-red-500/30 bg-red-500/10 text-red-600 hover:bg-red-500/20",
   };
 
   return `

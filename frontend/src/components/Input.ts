@@ -17,7 +17,7 @@ export function Input({
 }: InputProps): string {
   return `
     <div class="flex flex-col gap-2">
-      <label for="${id}" class="text-sm font-medium text-slate-200">
+      <label for="${id}" class="text-sm font-medium text-slate-700">
         ${label}
       </label>
 
@@ -26,7 +26,7 @@ export function Input({
         type="${type}"
         value="${value}"
         placeholder="${placeholder}"
-        class="h-12 w-full rounded-2xl border border-slate-700 bg-slate-900/80 px-4 text-slate-100 outline-none transition placeholder:text-slate-500 focus:border-sky-500 focus:ring-4 focus:ring-sky-500/15"
+        class="h-12 w-full rounded-2xl border border-[#e76e1d]/30 bg-white/90 px-4 text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-[#e76e1d] focus:ring-4 focus:ring-[#e76e1d]/20"
       />
 
       ${
