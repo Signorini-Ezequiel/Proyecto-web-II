@@ -3,6 +3,9 @@ import { Card } from "../components/Card";
 import { NavBar } from "../components/NavBar";
 import { navigateTo, ROUTES } from "../utils/router";
 import { getCarById } from "../data/cars";
+import { isFavorite, toggleFavorite } from "../services/favorites";
+import { logout } from "../services/auth";
+import { Icons } from "../utils/icons";
 
 // Almacenamos el ID del auto en sessionStorage
 export function setCurrentCarId(id: string) {
@@ -28,9 +31,7 @@ export function renderCarDetailPage(container: HTMLElement): void {
 
       <div class="mx-auto max-w-7xl px-5 py-8 sm:px-8">
         <button id="back-home" class="mb-6 flex items-center gap-2 text-[#e76e1d] hover:text-[#d45a0a] transition-colors">
-          <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
-          </svg>
+          ${Icons.chevronLeft(5)}
           <span>Volver al inicio</span>
         </button>
         <div class="grid gap-8 lg:grid-cols-2">
@@ -39,14 +40,10 @@ export function renderCarDetailPage(container: HTMLElement): void {
             <div class="relative aspect-video overflow-hidden rounded-3xl border border-slate-200 bg-white/80">
               <img id="main-image" src="${car.images[0]}" alt="${car.make} ${car.model}" class="h-full w-full object-cover">
               <button id="prev-image" class="absolute left-4 top-1/2 -translate-y-1/2 rounded-full bg-white/80 p-2 shadow-lg hover:bg-white">
-                <svg class="h-5 w-5 text-slate-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
-                </svg>
+                ${Icons.chevronLeft(5)}
               </button>
               <button id="next-image" class="absolute right-4 top-1/2 -translate-y-1/2 rounded-full bg-white/80 p-2 shadow-lg hover:bg-white">
-                <svg class="h-5 w-5 text-slate-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
-                </svg>
+                ${Icons.chevronRight(5)}
               </button>
             </div>
 
@@ -93,7 +90,11 @@ export function renderCarDetailPage(container: HTMLElement): void {
 
             <div class="flex gap-4">
               ${Button({ id: "contact-seller", text: "Contactar vendedor", variant: "primary" })}
-              ${Button({ id: "add-favorite", text: "Agregar a favoritos", variant: "secondary" })}
+              ${Button({ 
+                id: "add-favorite", 
+                text: isFavorite(car.id) ? `${Icons.heart(4, true)} Guardado` : `${Icons.heart(4, false)} Guardar`, 
+                variant: "secondary" 
+              })}
             </div>
           </div>
         </div>
@@ -163,12 +164,18 @@ export function renderCarDetailPage(container: HTMLElement): void {
 
     <!-- Modal para agrandar foto -->
     <div id="photo-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/80">
-      <div class="relative max-w-4xl max-h-[90vh]">
-        <img id="modal-image" src="" alt="Foto ampliada" class="max-w-full max-h-[85vh] object-contain">
+      <div class="relative max-w-4xl max-h-[90vh] w-full">
+        <img id="modal-image" src="" alt="Foto ampliada" class="max-w-full max-h-[85vh] object-contain mx-auto">
+        
+        <button id="modal-prev" class="absolute left-4 top-1/2 -translate-y-1/2 rounded-full bg-white/80 p-2 hover:bg-white">
+          ${Icons.chevronLeft(6)}
+        </button>
+        <button id="modal-next" class="absolute right-4 top-1/2 -translate-y-1/2 rounded-full bg-white/80 p-2 hover:bg-white">
+          ${Icons.chevronRight(6)}
+        </button>
+
         <button id="modal-close" class="absolute top-4 right-4 rounded-full bg-white/80 p-2 hover:bg-white">
-          <svg class="h-6 w-6 text-slate-900" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-          </svg>
+          ${Icons.x(6)}
         </button>
       </div>
     </div>
@@ -184,18 +191,29 @@ export function renderCarDetailPage(container: HTMLElement): void {
   function updateImage(index: number) {
     currentImageIndex = index;
     if (car) mainImage.src = car.images[index];
+    if (car) modalImage.src = car.images[index];
     thumbnails.forEach((thumb, i) => {
       thumb.classList.toggle('border-[#e76e1d]', i === index);
     });
   }
 
   document.getElementById('prev-image')?.addEventListener('click', () => {
-    const newIndex = currentImageIndex > 0 ? currentImageIndex - 1 : car.images.length - 1;
+    const newIndex = currentImageIndex > 0 ? currentImageIndex - 1 : car!.images.length - 1;
     updateImage(newIndex);
   });
 
   document.getElementById('next-image')?.addEventListener('click', () => {
-    const newIndex = currentImageIndex < car.images.length - 1 ? currentImageIndex + 1 : 0;
+    const newIndex = currentImageIndex < car!.images.length - 1 ? currentImageIndex + 1 : 0;
+    updateImage(newIndex);
+  });
+
+  document.getElementById('modal-prev')?.addEventListener('click', () => {
+    const newIndex = currentImageIndex > 0 ? currentImageIndex - 1 : car!.images.length - 1;
+    updateImage(newIndex);
+  });
+
+  document.getElementById('modal-next')?.addEventListener('click', () => {
+    const newIndex = currentImageIndex < car!.images.length - 1 ? currentImageIndex + 1 : 0;
     updateImage(newIndex);
   });
 
@@ -205,7 +223,7 @@ export function renderCarDetailPage(container: HTMLElement): void {
 
   // Modal functionality
   mainImage.addEventListener('click', () => {
-    modalImage.src = car.images[currentImageIndex];
+    modalImage.src = car!.images[currentImageIndex];
     modal?.classList.remove('hidden');
   });
 
@@ -219,13 +237,22 @@ export function renderCarDetailPage(container: HTMLElement): void {
     }
   });
 
+  window.scrollTo({ top: 0, behavior: 'auto' });
+
   // Event listeners
   document.getElementById("back-home")?.addEventListener("click", () => {
-    const userRole = sessionStorage.getItem("userRole");
-    if (userRole) {
+    const previousPage = sessionStorage.getItem("previousPage");
+    if (previousPage === ROUTES.favorites) {
+      navigateTo(ROUTES.favorites);
+    } else if (previousPage === ROUTES.home) {
       navigateTo(ROUTES.home);
     } else {
-      navigateTo(ROUTES.landing);
+      const userRole = sessionStorage.getItem("userRole");
+      if (userRole) {
+        navigateTo(ROUTES.home);
+      } else {
+        navigateTo(ROUTES.landing);
+      }
     }
   });
 
@@ -239,8 +266,19 @@ export function renderCarDetailPage(container: HTMLElement): void {
     navigateTo(ROUTES.about);
   });
 
-  document.querySelector("#nav-home")?.addEventListener("click", () => {
+  document.querySelector("#nav-home-link")?.addEventListener("click", (e) => {
+    e.preventDefault();
     navigateTo(ROUTES.home);
+  });
+
+  document.querySelector("#nav-favorites")?.addEventListener("click", (e) => {
+    e.preventDefault();
+    navigateTo(ROUTES.favorites);
+  });
+
+  document.querySelector("#nav-logout")?.addEventListener("click", () => {
+    logout();
+    navigateTo(ROUTES.landing);
   });
 
   document.querySelector("#nav-login")?.addEventListener("click", () => {
@@ -257,7 +295,14 @@ export function renderCarDetailPage(container: HTMLElement): void {
   });
 
   document.querySelector("#add-favorite")?.addEventListener("click", () => {
-    // Implementar agregar a favoritos
-    alert("Agregado a favoritos");
+    toggleFavorite(car.id);
+    const btn = document.querySelector("#add-favorite");
+    if (btn) {
+      if (isFavorite(car.id)) {
+        btn.innerHTML = `${Icons.heart(4, true)} Guardado`;
+      } else {
+        btn.innerHTML = `${Icons.heart(4, false)} Guardar`;
+      }
+    }
   });
 }

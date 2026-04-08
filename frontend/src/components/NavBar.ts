@@ -3,10 +3,12 @@ import { isAuthenticated, getSessionUser } from "../services/auth";
 
 interface NavBarOptions {
   showAbout?: boolean;
+  isFavoritesPage?: boolean;
+  isLandingPage?: boolean;
 }
 
 export function NavBar(options: NavBarOptions = {}): string {
-  const { showAbout = true } = options;
+  const { showAbout = true, isFavoritesPage = false, isLandingPage = false } = options;
   const isLoggedIn = isAuthenticated();
   const user = isLoggedIn ? getSessionUser() : null;
 
@@ -24,13 +26,19 @@ export function NavBar(options: NavBarOptions = {}): string {
               ? `<a href="#" id="nav-about" class="text-sm text-slate-600 hover:text-[#e76e1d] transition-colors">Sobre nosotros</a>`
               : ""
           }
+          <a href="#" id="nav-home-link" class="text-sm text-slate-600 hover:text-[#e76e1d] transition-colors">Buscar</a>
+          <a href="#" id="nav-favorites" class="text-sm text-slate-600 hover:text-[#e76e1d] transition-colors ${isFavoritesPage ? 'text-[#e76e1d] font-medium' : ''}">Guardados</a>
           ${
             isLoggedIn
               ? `
                 <div class="hidden rounded-2xl border border-slate-200 bg-white/80 px-4 py-2 text-sm text-slate-600 md:block">
                   ${user?.name} · ${user?.role === "seller" ? "Vendedor" : "Comprador"}
                 </div>
-                ${Button({ id: "nav-home", text: "Ir al panel", variant: "primary" })}
+                ${
+                  isLandingPage
+                    ? Button({ id: "nav-home", text: "Ir al panel", variant: "primary" })
+                    : Button({ id: "nav-logout", text: "Cerrar sesión", variant: "ghost" })
+                }
               `
               : `
                 ${Button({ id: "nav-login", text: "Iniciar sesión", variant: "ghost" })}

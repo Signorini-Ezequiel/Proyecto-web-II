@@ -5,6 +5,7 @@ export const ROUTES = {
   home: "/home",
   about: "/about",
   carDetail: "/car-detail",
+  favorites: "/favorites",
 } as const;
 
 export function navigateTo(route: string): void {

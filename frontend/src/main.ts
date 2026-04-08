@@ -5,6 +5,7 @@ import { renderLoginPage } from "./pages/login";
 import { renderRegisterPage } from "./pages/register";
 import { renderAboutPage } from "./pages/about";
 import { renderCarDetailPage } from "./pages/car-detail";
+import { renderFavoritesPage } from "./pages/favorites";
 import { isAuthenticated } from "./services/auth";
 import { ROUTES, navigateTo } from "./utils/router";
 
@@ -48,6 +49,10 @@ function renderRoute(): void {
 
     case ROUTES.carDetail:
       renderCarDetailPage(app);
+      break;
+
+    case ROUTES.favorites:
+      renderFavoritesPage(app);
       break;
 
     default:
