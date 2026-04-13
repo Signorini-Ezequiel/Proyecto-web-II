@@ -26,8 +26,8 @@ export function renderCarDetailPage(container: HTMLElement): void {
   }
 
   container.innerHTML = `
-    <main class="min-h-screen app-bg text-slate-900">
-      ${NavBar({ showAbout: true })}
+    <main class="min-h-screen app-bg text-slate-900 pt-20">
+      ${NavBar({ showAbout: false })}
 
       <div class="mx-auto max-w-7xl px-5 py-8 sm:px-8">
         <button id="back-home" class="mb-6 flex items-center gap-2 text-[#e76e1d] hover:text-[#d45a0a] transition-colors">

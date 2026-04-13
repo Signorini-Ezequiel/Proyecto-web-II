@@ -6,8 +6,10 @@ import { renderRegisterPage } from "./pages/register";
 import { renderAboutPage } from "./pages/about";
 import { renderCarDetailPage } from "./pages/car-detail";
 import { renderFavoritesPage } from "./pages/favorites";
+import { renderComparatorPage } from "./pages/comparator";
 import { isAuthenticated } from "./services/auth";
 import { ROUTES, navigateTo } from "./utils/router";
+import { logout } from "./services/auth";
 
 const app = document.querySelector<HTMLDivElement>("#app")!;
 
@@ -55,6 +57,10 @@ function renderRoute(): void {
       renderFavoritesPage(app);
       break;
 
+    case ROUTES.comparator:
+      renderComparatorPage(app);
+      break;
+
     default:
       navigateTo(ROUTES.landing);
   }
@@ -62,3 +68,9 @@ function renderRoute(): void {
 
 window.addEventListener("popstate", renderRoute);
 window.addEventListener("load", renderRoute);
+
+// Exponer navigateTo y logout en window para scripts inline (como en comparator)
+// @ts-ignore
+window.navigateTo = navigateTo;
+// @ts-ignore
+window.logout = logout;

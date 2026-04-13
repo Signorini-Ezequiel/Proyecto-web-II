@@ -1,6 +1,6 @@
 import { Card } from "../components/Card";
 import { StatCard } from "../components/StatCard";
-import { NavBar } from "../components/NavBar";
+import { NavBar, NavBarListeners } from "../components/NavBar";
 import { getSessionUser, logout } from "../services/auth";
 import { navigateTo, ROUTES } from "../utils/router";
 import { CARS, filterCars } from "../data/cars";
@@ -28,7 +28,7 @@ export function renderHomePage(container: HTMLElement): void {
   const maxPrice = Math.max(...CARS.map(c => c.price));
 
   container.innerHTML = `
-    <main class="min-h-screen app-bg text-slate-900">
+    <main class="min-h-screen app-bg text-slate-900 pt-20">
       ${NavBar({ showAbout: false, isLandingPage: false })}
 
       <div class="mx-auto max-w-7xl px-5 py-8 sm:px-8">
@@ -138,7 +138,7 @@ export function renderHomePage(container: HTMLElement): void {
                 <div class="flex items-center justify-between mb-6">
                   <h2 class="text-xl font-semibold text-slate-900">Autos disponibles</h2>
                   <button id="scroll-top" class="hidden fixed bottom-8 right-8 z-50 rounded-full bg-[#e76e1d] text-white p-3 hover:bg-[#d45a0a] transition-colors shadow-xl" title="Volver al inicio">
-                    ${Icons.arrowUp(5)}
+                    ${Icons.chevronUp(5)}
                   </button>
                 </div>
                 <div id="cars-container" class="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
@@ -151,39 +151,8 @@ export function renderHomePage(container: HTMLElement): void {
     </main>
   `;
 
-  // Event listeners
-  document.querySelector("#navbar-brand")?.addEventListener("click", (e) => {
-    e.preventDefault();
-    navigateTo(ROUTES.landing);
-  });
-
-  document.querySelector("#nav-about")?.addEventListener("click", (e) => {
-    e.preventDefault();
-    navigateTo(ROUTES.about);
-  });
-
-  document.querySelector("#nav-home-link")?.addEventListener("click", (e) => {
-    e.preventDefault();
-    navigateTo(ROUTES.home);
-  });
-
-  document.querySelector("#nav-favorites")?.addEventListener("click", (e) => {
-    e.preventDefault();
-    navigateTo(ROUTES.favorites);
-  });
-
-  document.querySelector("#nav-logout")?.addEventListener("click", () => {
-    logout();
-    navigateTo(ROUTES.landing);
-  });
-
-  document.querySelector("#nav-login")?.addEventListener("click", () => {
-    window.open("/login", "_blank");
-  });
-
-  document.querySelector("#nav-register")?.addEventListener("click", () => {
-    window.open("/register", "_blank");
-  });
+  // Listeners de navegación SPA y logout del NavBar
+  NavBarListeners();
 
   if (isSeller) return; // Si es seller, no mostrar más
 

@@ -6,7 +6,7 @@ export function renderAboutPage(container: HTMLElement): void {
   const isLoggedIn = isAuthenticated();
   const user = isLoggedIn ? getSessionUser() : null;
   container.innerHTML = `
-    <main class="min-h-screen app-bg text-slate-900">
+    <main class="min-h-screen app-bg text-slate-900 pt-20">
       <header class="sticky top-0 z-20 border-b border-slate-200 app-bg/90 backdrop-blur">
         <div class="mx-auto flex max-w-7xl items-center justify-between px-5 py-4 sm:px-8">
           <div>
