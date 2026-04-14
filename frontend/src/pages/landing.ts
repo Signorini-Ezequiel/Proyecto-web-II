@@ -1,5 +1,6 @@
 import { Button } from "../components/Button";
 import { Card } from "../components/Card";
+import { ThemeToggle } from "../components/ThemeToggle";
 import { navigateTo, ROUTES } from "../utils/router";
 import { isAuthenticated, getSessionUser } from "../services/auth";
 
@@ -16,6 +17,7 @@ export function renderLandingPage(container: HTMLElement): void {
           </div>
 
           <nav class="flex items-center gap-3">
+            ${ThemeToggle({ showLabel: false })}
             <a href="#" id="nav-about" class="text-sm text-slate-600 hover:text-[#e76e1d] transition-colors">Sobre nosotros</a>
             ${
               isLoggedIn

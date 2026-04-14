@@ -10,8 +10,11 @@ import { renderComparatorPage } from "./pages/comparator";
 import { isAuthenticated } from "./services/auth";
 import { ROUTES, navigateTo } from "./utils/router";
 import { logout } from "./services/auth";
+import { bindThemeToggleButtons, initializeTheme } from "./utils/theme";
 
 const app = document.querySelector<HTMLDivElement>("#app")!;
+
+initializeTheme();
 
 function renderRoute(): void {
   const currentPath = window.location.pathname || "/";
@@ -64,6 +67,8 @@ function renderRoute(): void {
     default:
       navigateTo(ROUTES.landing);
   }
+
+  bindThemeToggleButtons();
 }
 
 window.addEventListener("popstate", renderRoute);

@@ -2,12 +2,16 @@ import { Button } from "../components/Button";
 import { Card } from "../components/Card";
 import { ErrorMessage } from "../components/ErrorMessage";
 import { Input } from "../components/Input";
+import { ThemeToggle } from "../components/ThemeToggle";
 import { login } from "../services/auth";
 import { navigateTo, ROUTES } from "../utils/router";
 
 export function renderLoginPage(container: HTMLElement): void {
   container.innerHTML = `
     <main class="min-h-screen app-bg px-5 py-10 text-slate-900 sm:px-8 pt-20">
+      <div class="fixed right-5 top-5 z-50">
+        ${ThemeToggle()}
+      </div>
       <div class="mx-auto flex min-h-[calc(100vh-80px)] max-w-6xl items-center justify-center">
         <div class="w-full max-w-xl">
           ${Card({

@@ -1,4 +1,5 @@
 import { Button } from "./Button";
+import { ThemeToggle } from "./ThemeToggle";
 import { isAuthenticated, getSessionUser } from "../services/auth";
 
 declare global {
@@ -41,6 +42,7 @@ export function NavBar(options: NavBarOptions = {}): string {
           <a href="#" id="nav-home-link" class="text-sm transition-colors ${isActive("/home") ? activeClass : inactiveClass}">Buscar</a>
           <a href="#" id="nav-comparator" class="text-sm transition-colors ${isActive("/comparator") ? activeClass : inactiveClass}">Comparador</a>
           <a href="#" id="nav-favorites" class="text-sm transition-colors ${isActive("/favorites") ? activeClass : inactiveClass}">Guardados</a>
+          ${ThemeToggle({ showLabel: false })}
           ${
             isLoggedIn
               ? `

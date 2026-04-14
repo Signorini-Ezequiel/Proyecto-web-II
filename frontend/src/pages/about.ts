@@ -1,4 +1,5 @@
 import { Button } from "../components/Button";
+import { ThemeToggle } from "../components/ThemeToggle";
 import { isAuthenticated, getSessionUser } from "../services/auth";
 import { navigateTo, ROUTES } from "../utils/router";
 
@@ -15,6 +16,7 @@ export function renderAboutPage(container: HTMLElement): void {
           </div>
 
           <nav class="flex items-center gap-3">
+            ${ThemeToggle({ showLabel: false })}
             ${
               isLoggedIn
                 ? `
