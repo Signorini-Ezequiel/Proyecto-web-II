@@ -473,13 +473,13 @@ export function renderPublishPage(container: HTMLElement, isEditMode = false): v
 
     // Validar que haya al menos una foto (solo en creación, en edición puede mantener las existentes)
     if (!isEditMode && uploadedPhotos.length === 0) {
-      alert("Debes cargar al menos una foto del vehículo");
+      showToast("Debes cargar al menos una foto del vehículo", "error");
       return;
     }
 
     // Si hay errores, no enviar
     if (Object.keys(errors).length > 0) {
-      alert("Por favor, corrige los errores en el formulario");
+      showToast("Por favor, corrige los errores del formulario", "error");
       return;
     }
 

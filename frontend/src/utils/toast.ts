@@ -1,20 +1,44 @@
-export function showToast(message: string, type: 'success' | 'error' = 'success') {
-  const toast = document.createElement('div');
-  toast.className = `fixed top-4 right-4 z-50 p-4 rounded-lg shadow-lg transition-opacity duration-300 ${type === 'success' ? 'bg-green-500' : 'bg-red-500'} text-white`;
-  toast.textContent = message;
-  toast.style.opacity = '0';
-  document.body.appendChild(toast);
+import { Toast, type ToastVariant } from "../components/Toast";
 
-  // Fade in
-  setTimeout(() => {
-    toast.style.opacity = '1';
-  }, 10);
+const TOAST_CONTAINER_ID = "app-toast-container";
 
-  // Fade out and remove
-  setTimeout(() => {
-    toast.style.opacity = '0';
-    setTimeout(() => {
+function getToastContainer(): HTMLElement {
+  let container = document.getElementById(TOAST_CONTAINER_ID);
+
+  if (!container) {
+    container = document.createElement("div");
+    container.id = TOAST_CONTAINER_ID;
+    container.className =
+      "pointer-events-none fixed bottom-4 right-4 z-[100] flex w-[calc(100vw-2rem)] max-w-sm flex-col gap-3 sm:bottom-6 sm:right-6";
+    document.body.appendChild(container);
+  }
+
+  return container;
+}
+
+export function showToast(message: string, type: ToastVariant = "success"): void {
+  const container = getToastContainer();
+  const wrapper = document.createElement("div");
+
+  wrapper.innerHTML = Toast(message, type).trim();
+
+  const toast = wrapper.firstElementChild as HTMLDivElement | null;
+  if (!toast) return;
+
+  toast.classList.add("translate-y-3", "opacity-0");
+  container.appendChild(toast);
+
+  requestAnimationFrame(() => {
+    toast.classList.remove("translate-y-3", "opacity-0");
+  });
+
+  window.setTimeout(() => {
+    toast.classList.add("translate-y-3", "opacity-0");
+    window.setTimeout(() => {
       toast.remove();
+      if (!container.childElementCount) {
+        container.remove();
+      }
     }, 300);
-  }, 3000);
+  }, 3200);
 }

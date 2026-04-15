@@ -4,9 +4,12 @@ import { NavBar } from "../components/NavBar";
 import { navigateTo, ROUTES } from "../utils/router";
 import { getCarById } from "../data/cars";
 import { getPublishedCarById } from "../services/published-cars";
-import { isFavorite, toggleFavorite } from "../services/favorites";
+import { addFavorite, isFavorite, toggleFavorite } from "../services/favorites";
+import { addToComparison, isInComparison } from "../services/comparison";
 import { getSessionUser, logout } from "../services/auth";
 import { Icons } from "../utils/icons";
+import { showToast } from "../utils/toast";
+import { generateDetailOpinion } from "../utils/summary-generator";
 
 // Almacenamos el ID del auto en sessionStorage
 export function setCurrentCarId(id: string, isPublished: boolean = false) {
@@ -80,6 +83,7 @@ export function renderCarDetailPage(container: HTMLElement): void {
 
   const user = getSessionUser();
   const isSeller = user?.role === "seller";
+  const aiOpinion = generateDetailOpinion(car);
 
   container.innerHTML = `
     <main class="min-h-screen app-bg text-slate-900 pt-20">
@@ -144,6 +148,11 @@ export function renderCarDetailPage(container: HTMLElement): void {
               <p class="mt-3 text-slate-600 leading-7">${car.description}</p>
             </div>
 
+            <div class="ai-opinion-card rounded-3xl border border-[#e76e1d]/20 bg-[linear-gradient(135deg,rgba(255,244,235,0.96),rgba(255,250,245,0.96))] p-6">
+              <p class="text-xs font-semibold uppercase tracking-[0.28em] text-[#c9540a]">Opinion de la IA</p>
+              <p class="mt-3 leading-7 text-slate-700">${aiOpinion}</p>
+            </div>
+
             <div class="flex gap-4 flex-wrap">
               ${!isSeller ? Button({ id: "buy-now", text: "Comprar ahora", variant: "primary" }) : ''}
               ${isPublished && isOwner ? Button({ id: "edit-car", text: "Editar vehículo", variant: "secondary" }) : Button({ id: "contact-seller", text: "Contactar vendedor", variant: isSeller ? "primary" : "secondary" })}
@@ -152,7 +161,7 @@ export function renderCarDetailPage(container: HTMLElement): void {
                 text: isFavorite(car.id) ? `${Icons.heart(4, true)} Guardado` : `${Icons.heart(4, false)} Guardar`, 
                 variant: "secondary" 
               })}
-              ${!isSeller ? Button({ id: "add-to-comparator", text: "Comparar", variant: "ghost" }) : ''}
+              ${!isSeller ? Button({ id: "add-to-comparator", text: isInComparison(car.id) ? "En comparador" : "Comparar", variant: "ghost" }) : ''}
             </div>
           </div>
         </div>
@@ -363,8 +372,25 @@ export function renderCarDetailPage(container: HTMLElement): void {
   });
 
   document.querySelector("#add-to-comparator")?.addEventListener("click", () => {
-    // Implementar agregar al comparador
-    alert("Funcionalidad de comparador próximamente");
+    if (!isFavorite(car.id)) {
+      addFavorite(car.id);
+    }
+
+    const result = addToComparison(car.id);
+
+    if (!result.ok && result.reason === "duplicate") {
+      showToast("Ese vehículo ya está en el comparador", "error");
+      navigateTo(ROUTES.comparator);
+      return;
+    }
+
+    if (!result.ok && result.reason === "limit") {
+      showToast("Puedes comparar hasta 4 vehículos al mismo tiempo", "error");
+      return;
+    }
+
+    showToast("Vehículo agregado al comparador", "success");
+    navigateTo(ROUTES.comparator);
   });
 
   document.querySelector("#add-favorite")?.addEventListener("click", () => {

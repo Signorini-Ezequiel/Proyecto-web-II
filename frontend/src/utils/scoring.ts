@@ -30,6 +30,11 @@ function countFeatures(features: string[]): number {
   return features ? features.length : 0;
 }
 
+function normalizeScore(value: number, min: number, max: number): number {
+  if (max === min) return 20;
+  return ((value - min) / (max - min)) * 20;
+}
+
 export function calculateCarScore(car: Car, allCars: Car[]): ScoreResult {
   const scores = {
     price: 0,
@@ -43,33 +48,33 @@ export function calculateCarScore(car: Car, allCars: Car[]): ScoreResult {
   const prices = allCars.map(c => c.price);
   const maxPrice = Math.max(...prices);
   const minPrice = Math.min(...prices);
-  scores.price = ((maxPrice - car.price) / (maxPrice - minPrice)) * 20;
+  scores.price = normalizeScore(maxPrice - car.price, 0, maxPrice - minPrice);
 
   // Scoring de kilometraje (menor es mejor)
   const mileages = allCars.map(c => c.mileage);
   const maxMileage = Math.max(...mileages);
   const minMileage = Math.min(...mileages);
-  scores.mileage = ((maxMileage - car.mileage) / (maxMileage - minMileage)) * 20;
+  scores.mileage = normalizeScore(maxMileage - car.mileage, 0, maxMileage - minMileage);
 
   // Scoring de año (más nuevo es mejor)
   const years = allCars.map(c => c.year);
   const maxYear = Math.max(...years);
   const minYear = Math.min(...years);
-  scores.year = ((car.year - minYear) / (maxYear - minYear)) * 20;
+  scores.year = normalizeScore(car.year, minYear, maxYear);
 
   // Scoring de potencia (mayor es mejor)
   const powers = allCars.map(c => extractPower(c.specs.power));
   const maxPower = Math.max(...powers);
   const minPower = Math.min(...powers);
   const carPower = extractPower(car.specs.power);
-  scores.power = ((carPower - minPower) / (maxPower - minPower)) * 20;
+  scores.power = normalizeScore(carPower, minPower, maxPower);
 
   // Scoring de equipamiento (más características es mejor)
   const allFeatures = allCars.map(c => countFeatures(c.specs.features));
   const maxFeatures = Math.max(...allFeatures);
   const minFeatures = Math.min(...allFeatures);
   const carFeatures = countFeatures(car.specs.features);
-  scores.features = ((carFeatures - minFeatures) / (maxFeatures - minFeatures)) * 20;
+  scores.features = normalizeScore(carFeatures, minFeatures, maxFeatures);
 
   const totalScore = Object.values(scores).reduce((a, b) => a + b, 0);
 

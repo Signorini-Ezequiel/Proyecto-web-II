@@ -37,3 +37,15 @@ export function generateComparisonInsight(cars: Car[], metrics: ComparisonMetric
 
   return insights.join(" ");
 }
+
+export function generateDetailOpinion(car: Car): string {
+  const featureCount = car.specs.features.length;
+  const priceTier =
+    car.price <= 20000 ? "muy competitiva" : car.price <= 32000 ? "equilibrada" : "premium";
+  const mileageState =
+    car.mileage <= 30000 ? "bajo kilometraje" : car.mileage <= 80000 ? "kilometraje razonable" : "uso considerable";
+  const equipmentView =
+    featureCount >= 8 ? "muy buen nivel de equipamiento" : featureCount >= 4 ? "equipamiento correcto" : "equipamiento básico";
+
+  return `La IA la ve como una opción ${priceTier}: combina ${mileageState}, ${equipmentView} y una ficha técnica que encaja bien para quien prioriza ${car.transmission.toLowerCase()} y ${car.fuel.toLowerCase()}.`;
+}
