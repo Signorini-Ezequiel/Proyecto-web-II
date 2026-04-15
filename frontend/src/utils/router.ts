@@ -7,6 +7,8 @@ export const ROUTES = {
   carDetail: "/car-detail",
   favorites: "/favorites",
   comparator: "/comparator",
+  publish: "/publish",
+  editCar: "/edit-car",
 } as const;
 
 export function navigateTo(route: string): void {

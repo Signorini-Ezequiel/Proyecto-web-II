@@ -51,6 +51,11 @@ function getUsers(): MockUser[] {
   }
 }
 
+export function getUserById(id: number): MockUser | null {
+  const users = getUsers();
+  return users.find(user => user.id === id) || null;
+}
+
 function buildSessionUser(user: MockUser): SessionUser {
   return {
     id: user.id,

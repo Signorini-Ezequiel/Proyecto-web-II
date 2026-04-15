@@ -19,6 +19,7 @@ export function NavBar(options: NavBarOptions = {}): string {
   const { showAbout = false, isLandingPage = false, currentPath = window.location.pathname } = options;
   const isLoggedIn = isAuthenticated();
   const user = isLoggedIn ? getSessionUser() : null;
+  const isSeller = user?.role === "seller";
 
   // Helper para determinar si un link está activo
   const isActive = (path: string) => currentPath === path;
@@ -52,9 +53,9 @@ export function NavBar(options: NavBarOptions = {}): string {
               ? `<a href="#" id="nav-about" class="${navUnderlineClass} ${isActive("/about") ? activeClass : inactiveClass}">Sobre nosotros</a>`
               : ""
           }
-          <a href="#" id="nav-home-link" class="${navUnderlineClass} ${isActive("/home") ? activeClass : inactiveClass}">Buscar</a>
-          <a href="#" id="nav-comparator" class="${navUnderlineClass} ${isActive("/comparator") ? activeClass : inactiveClass}">Comparador</a>
-          <a href="#" id="nav-favorites" class="${navUnderlineClass} ${isActive("/favorites") ? activeClass : inactiveClass}">Guardados</a>
+          <a href="#" id="nav-home-link" class="${navUnderlineClass} ${isActive("/home") ? activeClass : inactiveClass}">${isSeller ? "Mis publicaciones" : "Buscar"}</a>
+          ${!isSeller ? `<a href="#" id="nav-comparator" class="${navUnderlineClass} ${isActive("/comparator") ? activeClass : inactiveClass}">Comparador</a>` : ""}
+          ${!isSeller ? `<a href="#" id="nav-favorites" class="${navUnderlineClass} ${isActive("/favorites") ? activeClass : inactiveClass}">Guardados</a>` : ""}
           ${ThemeToggle({ showLabel: false })}
           ${
             isLoggedIn
@@ -100,9 +101,9 @@ export function NavBar(options: NavBarOptions = {}): string {
               ? `<button type="button" data-nav-route="/about" class="${mobileLinkClass} ${isActive("/about") ? mobileLinkActiveClass : ""}">Sobre nosotros</button>`
               : ""
           }
-          <button type="button" data-nav-route="/home" class="${mobileLinkClass} ${isActive("/home") ? mobileLinkActiveClass : ""}">Buscar</button>
-          <button type="button" data-nav-route="/comparator" class="${mobileLinkClass} ${isActive("/comparator") ? mobileLinkActiveClass : ""}">Comparador</button>
-          <button type="button" data-nav-route="/favorites" class="${mobileLinkClass} ${isActive("/favorites") ? mobileLinkActiveClass : ""}">Guardados</button>
+          <button type="button" data-nav-route="/home" class="${mobileLinkClass} ${isActive("/home") ? mobileLinkActiveClass : ""}">${isSeller ? "Mis publicaciones" : "Buscar"}</button>
+          ${!isSeller ? `<button type="button" data-nav-route="/comparator" class="${mobileLinkClass} ${isActive("/comparator") ? mobileLinkActiveClass : ""}">Comparador</button>` : ''}
+          ${!isSeller ? `<button type="button" data-nav-route="/favorites" class="${mobileLinkClass} ${isActive("/favorites") ? mobileLinkActiveClass : ""}">Guardados</button>` : ""}
           ${
             isLoggedIn
               ? `

@@ -7,6 +7,7 @@ import { renderAboutPage } from "./pages/about";
 import { renderCarDetailPage } from "./pages/car-detail";
 import { renderFavoritesPage } from "./pages/favorites";
 import { renderComparatorPage } from "./pages/comparator";
+import { renderPublishPage } from "./pages/publish";
 import { isAuthenticated } from "./services/auth";
 import { ROUTES, navigateTo } from "./utils/router";
 import { logout } from "./services/auth";
@@ -62,6 +63,22 @@ function renderRoute(): void {
 
     case ROUTES.comparator:
       renderComparatorPage(app);
+      break;
+
+    case ROUTES.publish:
+      if (!isAuthenticated()) {
+        navigateTo(ROUTES.login);
+        return;
+      }
+      renderPublishPage(app);
+      break;
+
+    case ROUTES.editCar:
+      if (!isAuthenticated()) {
+        navigateTo(ROUTES.login);
+        return;
+      }
+      renderPublishPage(app, true); // true indica modo edición
       break;
 
     default:

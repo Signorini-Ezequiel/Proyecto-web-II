@@ -1,12 +1,21 @@
 import { CARS } from "../data/cars";
 import { getComparisonMetrics } from "../utils/scoring";
 import { getFavorites } from "../services/favorites";
+import { getSessionUser } from "../services/auth";
 import { NavBar, NavBarListeners } from "../components/NavBar";
 import { CarComparisonCard } from "../components/CarComparisonCard";
 import { ComparisonTable } from "../components/ComparisonTable";
 import { RecommendationSummary } from "../components/RecommendationSummary";
+import { navigateTo, ROUTES } from "../utils/router";
 
 export function renderComparatorPage(app: HTMLDivElement): void {
+  const user = getSessionUser();
+
+  if (user?.role === "seller") {
+    navigateTo(ROUTES.home);
+    return;
+  }
+
   // Get favorite cars
   const favoriteIds = getFavorites();
   const favoriteCars = CARS.filter(car => favoriteIds.includes(car.id));

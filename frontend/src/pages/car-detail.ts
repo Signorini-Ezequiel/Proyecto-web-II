@@ -3,27 +3,83 @@ import { Card } from "../components/Card";
 import { NavBar } from "../components/NavBar";
 import { navigateTo, ROUTES } from "../utils/router";
 import { getCarById } from "../data/cars";
+import { getPublishedCarById } from "../services/published-cars";
 import { isFavorite, toggleFavorite } from "../services/favorites";
-import { logout } from "../services/auth";
+import { getSessionUser, logout } from "../services/auth";
 import { Icons } from "../utils/icons";
 
 // Almacenamos el ID del auto en sessionStorage
-export function setCurrentCarId(id: string) {
+export function setCurrentCarId(id: string, isPublished: boolean = false) {
   sessionStorage.setItem("currentCarId", id);
+  sessionStorage.setItem("isPublished", isPublished.toString());
 }
 
 export function renderCarDetailPage(container: HTMLElement): void {
-  const carId = sessionStorage.getItem("currentCarId") || "1";
-  const car = getCarById(carId);
+  const carId = sessionStorage.getItem("currentCarId");
+  const isPublishedStr = sessionStorage.getItem("isPublished");
+  const isPublished = isPublishedStr === "true";
 
-  if (!car) {
-    container.innerHTML = `
-      <main class="min-h-screen app-bg text-slate-900">
-        <p>Auto no encontrado</p>
-      </main>
-    `;
+  if (!carId) {
+    navigateTo(ROUTES.home);
     return;
   }
+
+  let car: any;
+  let publishedCar: any = null;
+  let isOwner = false;
+
+  if (isPublished) {
+    publishedCar = getPublishedCarById(carId);
+    if (!publishedCar) {
+      container.innerHTML = `
+        <main class="min-h-screen app-bg text-slate-900">
+          <p>Auto no encontrado</p>
+        </main>
+      `;
+      return;
+    }
+    const user = getSessionUser();
+    isOwner = !!user && user.id === publishedCar.sellerId;
+
+    car = {
+      id: publishedCar.id,
+      make: publishedCar.make,
+      model: publishedCar.model,
+      year: publishedCar.year,
+      price: publishedCar.price,
+      mileage: publishedCar.mileage,
+      transmission: publishedCar.transmission,
+      fuel: publishedCar.fuel,
+      color: publishedCar.color,
+      location: publishedCar.location,
+      description: publishedCar.description,
+      images: publishedCar.images,
+      specs: {
+        engine: publishedCar.specs?.engine || "",
+        power: publishedCar.specs?.power || "",
+        torque: publishedCar.specs?.torque || "",
+        acceleration: publishedCar.specs?.acceleration || "",
+        topSpeed: publishedCar.specs?.topSpeed || "",
+        consumption: publishedCar.specs?.consumption || "",
+        dimensions: publishedCar.specs?.dimensions || "",
+        weight: publishedCar.specs?.weight || "",
+        features: publishedCar.specs?.features || [],
+      },
+    };
+  } else {
+    car = getCarById(carId);
+    if (!car) {
+      container.innerHTML = `
+        <main class="min-h-screen app-bg text-slate-900">
+          <p>Auto no encontrado</p>
+        </main>
+      `;
+      return;
+    }
+  }
+
+  const user = getSessionUser();
+  const isSeller = user?.role === "seller";
 
   container.innerHTML = `
     <main class="min-h-screen app-bg text-slate-900 pt-20">
@@ -48,7 +104,7 @@ export function renderCarDetailPage(container: HTMLElement): void {
             </div>
 
             <div class="flex gap-2 overflow-x-auto">
-              ${car.images.map((img, index) => `
+              ${car.images.map((img: string, index: number) => `
                 <button class="thumbnail-btn flex-shrink-0 w-20 h-20 rounded-lg border-2 border-transparent overflow-hidden hover:border-[#e76e1d] transition-colors" data-index="${index}">
                   <img src="${img}" alt="Vista ${index + 1}" class="w-full h-full object-cover">
                 </button>
@@ -88,13 +144,15 @@ export function renderCarDetailPage(container: HTMLElement): void {
               <p class="mt-3 text-slate-600 leading-7">${car.description}</p>
             </div>
 
-            <div class="flex gap-4">
-              ${Button({ id: "contact-seller", text: "Contactar vendedor", variant: "primary" })}
+            <div class="flex gap-4 flex-wrap">
+              ${!isSeller ? Button({ id: "buy-now", text: "Comprar ahora", variant: "primary" }) : ''}
+              ${isPublished && isOwner ? Button({ id: "edit-car", text: "Editar vehículo", variant: "secondary" }) : Button({ id: "contact-seller", text: "Contactar vendedor", variant: isSeller ? "primary" : "secondary" })}
               ${Button({ 
                 id: "add-favorite", 
                 text: isFavorite(car.id) ? `${Icons.heart(4, true)} Guardado` : `${Icons.heart(4, false)} Guardar`, 
                 variant: "secondary" 
               })}
+              ${!isSeller ? Button({ id: "add-to-comparator", text: "Comparar", variant: "ghost" }) : ''}
             </div>
           </div>
         </div>
@@ -151,7 +209,7 @@ export function renderCarDetailPage(container: HTMLElement): void {
                   <div class="mt-4">
                     <h4 class="font-medium text-slate-900 mb-2">Equipamiento destacado</h4>
                     <ul class="space-y-1 text-sm text-slate-600">
-                      ${car.specs.features.map(feature => `<li>• ${feature}</li>`).join('')}
+                      ${car.specs.features.map((feature: string) => `<li>• ${feature}</li>`).join('')}
                     </ul>
                   </div>
                 </div>
@@ -292,6 +350,21 @@ export function renderCarDetailPage(container: HTMLElement): void {
   document.querySelector("#contact-seller")?.addEventListener("click", () => {
     // Implementar contacto con vendedor
     alert("Funcionalidad de contacto próximamente");
+  });
+
+  document.querySelector("#buy-now")?.addEventListener("click", () => {
+    // Implementar compra
+    alert("Funcionalidad de compra próximamente");
+  });
+
+  document.querySelector("#edit-car")?.addEventListener("click", () => {
+    // Implementar edición
+    alert("Funcionalidad de edición próximamente");
+  });
+
+  document.querySelector("#add-to-comparator")?.addEventListener("click", () => {
+    // Implementar agregar al comparador
+    alert("Funcionalidad de comparador próximamente");
   });
 
   document.querySelector("#add-favorite")?.addEventListener("click", () => {

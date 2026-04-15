@@ -1,9 +1,8 @@
-import { Card } from "../components/Card";
-import { StatCard } from "../components/StatCard";
 import { NavBar, NavBarListeners } from "../components/NavBar";
-import { getSessionUser, logout } from "../services/auth";
+import { getSessionUser, logout, getUserById } from "../services/auth";
 import { navigateTo, ROUTES } from "../utils/router";
-import { CARS, filterCars } from "../data/cars";
+import { filterCars } from "../data/cars";
+import { getAllCarsForDisplay, getPublishedCarById, getPublishedCarsBySeller } from "../services/published-cars";
 import { setCurrentCarId } from "./car-detail";
 import { isFavorite, toggleFavorite } from "../services/favorites";
 import { Icons } from "../utils/icons";
@@ -18,14 +17,42 @@ export function renderHomePage(container: HTMLElement): void {
 
   const isSeller = user.role === "seller";
 
-  // Obtener valores únicos para los filtros
-  const makes = [...new Set(CARS.map(c => c.make))].sort();
-  const locations = [...new Set(CARS.map(c => c.location))].sort();
-  const fuels = [...new Set(CARS.map(c => c.fuel))].sort();
-  const transmissions = [...new Set(CARS.map(c => c.transmission))].sort();
-  const years = [...new Set(CARS.map(c => c.year))].sort((a, b) => b - a);
-  const minPrice = Math.min(...CARS.map(c => c.price));
-  const maxPrice = Math.max(...CARS.map(c => c.price));
+  // Obtener autos a mostrar
+  const allCars: any[] = getAllCarsForDisplay();
+  const carsToShow = isSeller ? getPublishedCarsBySeller(user.id).map(published => ({
+    id: published.id,
+    make: published.make,
+    model: published.model,
+    year: published.year,
+    price: published.price,
+    mileage: published.mileage,
+    transmission: published.transmission,
+    fuel: published.fuel,
+    color: published.color,
+    location: published.location,
+    description: published.description,
+    images: published.images,
+    specs: published.specs || {}
+  })) : allCars;
+
+  // Variables para filtros (solo para compradores)
+  let makes: string[] = [];
+  let locations: string[] = [];
+  let fuels: string[] = [];
+  let transmissions: string[] = [];
+  let years: number[] = [];
+  let minPrice = 0;
+  let maxPrice = 0;
+
+  if (!isSeller) {
+    makes = [...new Set(allCars.map((c: any) => c.make))].sort() as string[];
+    locations = [...new Set(allCars.map((c: any) => c.location))].sort() as string[];
+    fuels = [...new Set(allCars.map((c: any) => c.fuel))].sort() as string[];
+    transmissions = [...new Set(allCars.map((c: any) => c.transmission))].sort() as string[];
+    years = [...new Set(allCars.map((c: any) => c.year))].sort((a: number, b: number) => b - a) as number[];
+    minPrice = Math.min(...allCars.map((c: any) => c.price));
+    maxPrice = Math.max(...allCars.map((c: any) => c.price));
+  }
 
   container.innerHTML = `
     <main class="min-h-screen app-bg text-slate-900 pt-20">
@@ -35,28 +62,13 @@ export function renderHomePage(container: HTMLElement): void {
         ${
           isSeller
             ? `
-              <section class="grid gap-6">
-                ${Card({
-                  children: `
-                    <p class="text-sm uppercase tracking-[0.25em] text-[#e76e1d]">
-                      Gestión comercial
-                    </p>
-                    <h2 class="mt-3 text-3xl font-bold tracking-tight text-slate-900">
-                      Bienvenido, ${user.name}
-                    </h2>
-                    <p class="mt-4 text-sm leading-7 text-slate-600">
-                      Desde acá vas a poder administrar publicaciones, consultas recibidas, métricas y estado de tus vehículos.
-                    </p>
-
-                    <div class="mt-8 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-                      ${StatCard({ title: "Publicaciones activas", value: "12", subtitle: "3 destacadas" })}
-                      ${StatCard({ title: "Consultas recibidas", value: "34", subtitle: "7 sin responder" })}
-                      ${StatCard({ title: "Vehículos reservados", value: "4", subtitle: "1 con entrega próxima" })}
-                      ${StatCard({ title: "Precio estimado IA", value: "18 análisis", subtitle: "últimos 30 días" })}
-                    </div>
-                  `,
-                })}
-              </section>
+              <div class="flex items-center justify-between mb-8">
+                <h1 class="text-3xl font-bold text-slate-900">Mis publicaciones</h1>
+                <button id="publish-btn" class="rounded-lg bg-[#e76e1d] px-6 py-3 font-semibold text-white hover:bg-[#d45a0a] transition-colors">
+                  Publicar nuevo vehículo
+                </button>
+              </div>
+              <div id="cars-container" class="grid gap-6 md:grid-cols-2 lg:grid-cols-3"></div>
             `
             : `
               <!-- Buscador -->
@@ -154,7 +166,15 @@ export function renderHomePage(container: HTMLElement): void {
   // Listeners de navegación SPA y logout del NavBar
   NavBarListeners();
 
-  if (isSeller) return; // Si es seller, no mostrar más
+  if (isSeller) {
+    renderCars(carsToShow);
+    // Botón publicar vehículo
+    document.getElementById("publish-btn")?.addEventListener("click", () => {
+      navigateTo(ROUTES.publish);
+    });
+
+    return;
+  } // Si es seller, no mostrar más
 
   // Logout button
   document.querySelector("#logout-button")?.addEventListener("click", () => {
@@ -163,7 +183,7 @@ export function renderHomePage(container: HTMLElement): void {
   });
 
   // Función para renderizar autos
-  function renderCars(cars = CARS) {
+  function renderCars(cars: any[]) {
     const container = document.getElementById("cars-container");
     if (!container) return;
 
@@ -176,32 +196,44 @@ export function renderHomePage(container: HTMLElement): void {
       return;
     }
 
-    container.innerHTML = cars.map(car => `
-      <div class="car-card rounded-3xl border border-slate-200 bg-white/80 overflow-hidden hover:shadow-lg transition-shadow" data-car-id="${car.id}">
-        <div class="relative aspect-video bg-slate-100 group cursor-pointer">
-          <img src="${car.images[0]}" alt="${car.make} ${car.model}" class="w-full h-full object-cover car-main-image">
-          <div class="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors flex items-center justify-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-            <button class="car-prev-btn rounded-full bg-white/80 p-2 hover:bg-white">
-              ${Icons.chevronLeft(4)}
-            </button>
-            <button class="car-next-btn rounded-full bg-white/80 p-2 hover:bg-white">
-              ${Icons.chevronRight(4)}
-            </button>
+    container.innerHTML = cars.map((car: any) => {
+      const publishedCar = getPublishedCarById(car.id);
+      const isOwner = publishedCar && publishedCar.sellerId === user!.id;
+      const sellerName = publishedCar ? getUserById(publishedCar.sellerId)?.name : null;
+      
+      return `
+        <div class="car-card rounded-3xl border border-slate-200 bg-white/80 overflow-hidden hover:shadow-lg transition-shadow" data-car-id="${car.id}">
+          <div class="relative aspect-video bg-slate-100 group cursor-pointer">
+            <img src="${car.images[0]}" alt="${car.make} ${car.model}" class="w-full h-full object-cover car-main-image">
+            <div class="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors flex items-center justify-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+              <button class="car-prev-btn rounded-full bg-white/80 p-2 hover:bg-white">
+                ${Icons.chevronLeft(4)}
+              </button>
+              <button class="car-next-btn rounded-full bg-white/80 p-2 hover:bg-white">
+                ${Icons.chevronRight(4)}
+              </button>
+            </div>
+            ${!isOwner ? `<button class="favorite-btn absolute top-3 right-3 rounded-full bg-white/80 p-2 hover:bg-white" data-car-id="${car.id}">
+              ${isFavorite(car.id) ? Icons.heart(5, true) : Icons.heart(5, false)}
+            </button>` : ''}
+            ${isOwner ? `
+              <button class="edit-btn absolute top-3 left-3 rounded-full bg-[#e76e1d] text-white p-2 hover:bg-[#d45a0a] transition-colors" data-car-id="${car.id}" title="Editar vehículo">
+                ${Icons.edit(4)}
+              </button>
+            ` : ''}
+            <div class="absolute bottom-2 right-2 text-xs text-white bg-black/50 px-2 py-1 rounded">
+              <span class="car-image-counter">1</span>/${car.images.length}
+            </div>
           </div>
-          <button class="favorite-btn absolute top-3 right-3 rounded-full bg-white/80 p-2 hover:bg-white" data-car-id="${car.id}">
-            ${isFavorite(car.id) ? Icons.heart(5, true) : Icons.heart(5, false)}
-          </button>
-          <div class="absolute bottom-2 right-2 text-xs text-white bg-black/50 px-2 py-1 rounded">
-            <span class="car-image-counter">1</span>/${car.images.length}
+          <div class="p-6 cursor-pointer car-details">
+            <h3 class="font-semibold text-slate-900">${car.make} ${car.model} ${car.year}</h3>
+            <p class="mt-1 text-sm text-slate-600">${car.mileage.toLocaleString()} km · ${car.transmission} · ${car.location}</p>
+            <p class="mt-2 text-lg font-bold text-[#e76e1d]">US$ ${car.price.toLocaleString()}</p>
+            <p class="mt-1 text-sm text-slate-500">Publicado por: ${sellerName || 'N/A'}</p>
           </div>
         </div>
-        <div class="p-6 cursor-pointer car-details">
-          <h3 class="font-semibold text-slate-900">${car.make} ${car.model} ${car.year}</h3>
-          <p class="mt-1 text-sm text-slate-600">${car.mileage.toLocaleString()} km · ${car.transmission} · ${car.location}</p>
-          <p class="mt-2 text-lg font-bold text-[#e76e1d]">US$ ${car.price.toLocaleString()}</p>
-        </div>
-      </div>
-    `).join('');
+      `;
+    }).join('');
 
     // Event listeners para tarjetas
     document.querySelectorAll('.car-card').forEach(card => {
@@ -211,8 +243,14 @@ export function renderHomePage(container: HTMLElement): void {
       card.addEventListener('click', (e) => {
         if (!(e.target as HTMLElement).closest('.favorite-btn, .car-prev-btn, .car-next-btn')) {
           sessionStorage.setItem("previousPage", ROUTES.home);
-          setCurrentCarId(carId!);
-          navigateTo(ROUTES.carDetail);
+          const publishedCar = getPublishedCarById(carId!);
+          if (publishedCar) {
+            setCurrentCarId(carId!, true);
+            navigateTo(ROUTES.carDetail);
+          } else {
+            setCurrentCarId(carId!, false);
+            navigateTo(ROUTES.carDetail);
+          }
         }
       });
 
@@ -225,9 +263,15 @@ export function renderHomePage(container: HTMLElement): void {
         btn.innerHTML = isFavorite(carId!) ? Icons.heart(5, true) : Icons.heart(5, false);
       });
 
+      // Botón editar (solo para propietarios)
+      card.querySelector('.edit-btn')?.addEventListener('click', (e) => {
+        e.stopPropagation();
+        navigateTo(`${ROUTES.editCar}?id=${carId}`);
+      });
+
       // Carrusel en tarjeta
       let imageIndex = 0;
-      const car = CARS.find(c => c.id === carId);
+      const car = cars.find(c => c.id === carId);
       if (!car) return;
 
       const mainImage = card.querySelector('.car-main-image') as HTMLImageElement;
@@ -280,7 +324,7 @@ export function renderHomePage(container: HTMLElement): void {
       minYear: minYear > 0 ? minYear : undefined,
       minPrice,
       maxPrice
-    });
+    }, allCars);
 
     renderCars(filtered);
   }
@@ -346,5 +390,5 @@ export function renderHomePage(container: HTMLElement): void {
   }
 
   // Renderizar autos inicialmente
-  renderCars();
+  renderCars(carsToShow);
 }

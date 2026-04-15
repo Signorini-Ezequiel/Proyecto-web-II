@@ -1,13 +1,38 @@
 import { NavBar, NavBarListeners } from "../components/NavBar";
 import { navigateTo, ROUTES } from "../utils/router";
 import { CARS } from "../data/cars";
+import { getPublishedCarById } from "../services/published-cars";
 import { getFavorites, toggleFavorite, isFavorite } from "../services/favorites";
 import { setCurrentCarId } from "./car-detail";
 import { Icons } from "../utils/icons";
 
 export function renderFavoritesPage(container: HTMLElement): void {
   const favoriteIds = getFavorites();
-  const favoriteCars = CARS.filter(car => favoriteIds.includes(car.id));
+  const favoriteCars = favoriteIds.map(id => {
+    if (id.startsWith("published_")) {
+      const publishedCar = getPublishedCarById(id);
+      if (publishedCar) {
+        return {
+          id: publishedCar.id,
+          make: publishedCar.make,
+          model: publishedCar.model,
+          year: publishedCar.year,
+          price: publishedCar.price,
+          mileage: publishedCar.mileage,
+          transmission: publishedCar.transmission,
+          fuel: publishedCar.fuel,
+          color: publishedCar.color,
+          location: publishedCar.location,
+          description: publishedCar.description,
+          images: publishedCar.images,
+          specs: publishedCar.specs || {}
+        };
+      }
+    } else {
+      return CARS.find(car => car.id === id);
+    }
+    return null;
+  }).filter(Boolean) as any[];
 
   container.innerHTML = `
     <main class="min-h-screen app-bg text-slate-900 pt-20">
@@ -99,7 +124,7 @@ export function renderFavoritesPage(container: HTMLElement): void {
     card.addEventListener('click', (e) => {
       if (!(e.target as HTMLElement).closest('.favorite-btn, .car-prev-btn, .car-next-btn')) {
         sessionStorage.setItem("previousPage", ROUTES.favorites);
-        setCurrentCarId(carId!);
+        setCurrentCarId(carId!, carId!.startsWith("published_"));
         navigateTo(ROUTES.carDetail);
       }
     });
@@ -114,7 +139,7 @@ export function renderFavoritesPage(container: HTMLElement): void {
 
     // Carrusel en tarjeta
     let imageIndex = 0;
-    const car = CARS.find(c => c.id === carId);
+    const car = favoriteCars.find(c => c.id === carId);
     if (!car) return;
 
     const mainImage = card.querySelector('.car-main-image') as HTMLImageElement;
