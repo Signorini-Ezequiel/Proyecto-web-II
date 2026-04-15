@@ -123,9 +123,9 @@ export function renderComparatorPage(app: HTMLDivElement): void {
         selectedCars.length < 2
           ? `
             <section class="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
-              <div class="rounded-3xl border border-[#e76e1d]/15 bg-[#fff4eb] p-8 text-center">
-                <p class="text-lg font-semibold text-slate-900">Selecciona al menos 2 vehiculos para ver la comparacion.</p>
-                <p class="mt-2 text-sm text-slate-600">Puedes comparar hasta 4 autos al mismo tiempo.</p>
+              <div class="comparator-note rounded-3xl border border-[#e76e1d]/15 bg-[#fff4eb] p-8 text-center">
+                <p class="comparator-note-text text-lg font-semibold text-slate-900">Selecciona al menos 2 vehiculos para ver la comparacion.</p>
+                <p class="comparator-note-text mt-2 text-sm text-slate-600">Puedes comparar hasta 4 autos al mismo tiempo.</p>
               </div>
             </section>
           `

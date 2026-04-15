@@ -1,15 +1,16 @@
 import { Button } from "../components/Button";
 import { Card } from "../components/Card";
-import { NavBar } from "../components/NavBar";
+import { NavBar, NavBarListeners } from "../components/NavBar";
 import { navigateTo, ROUTES } from "../utils/router";
 import { getCarById } from "../data/cars";
 import { getPublishedCarById } from "../services/published-cars";
 import { addFavorite, isFavorite, toggleFavorite } from "../services/favorites";
 import { addToComparison, isInComparison } from "../services/comparison";
-import { getSessionUser, logout } from "../services/auth";
+import { getSessionUser, getUserById } from "../services/auth";
 import { Icons } from "../utils/icons";
 import { showToast } from "../utils/toast";
 import { generateDetailOpinion } from "../utils/summary-generator";
+import { addPublicQuestion, answerPublicQuestion, getQuestionsByCarId } from "../services/car-questions";
 
 // Almacenamos el ID del auto en sessionStorage
 export function setCurrentCarId(id: string, isPublished: boolean = false) {
@@ -84,6 +85,7 @@ export function renderCarDetailPage(container: HTMLElement): void {
   const user = getSessionUser();
   const isSeller = user?.role === "seller";
   const aiOpinion = generateDetailOpinion(car);
+  const publicQuestions = isPublished ? getQuestionsByCarId(car.id) : [];
 
   container.innerHTML = `
     <main class="min-h-screen app-bg text-slate-900 pt-20">
@@ -155,7 +157,7 @@ export function renderCarDetailPage(container: HTMLElement): void {
 
             <div class="flex gap-4 flex-wrap">
               ${!isSeller ? Button({ id: "buy-now", text: "Comprar ahora", variant: "primary" }) : ''}
-              ${isPublished && isOwner ? Button({ id: "edit-car", text: "Editar vehículo", variant: "secondary" }) : Button({ id: "contact-seller", text: "Contactar vendedor", variant: isSeller ? "primary" : "secondary" })}
+              ${isPublished && isOwner ? Button({ id: "edit-car", text: "Editar vehículo", variant: "secondary" }) : ""}
               ${Button({ 
                 id: "add-favorite", 
                 text: isFavorite(car.id) ? `${Icons.heart(4, true)} Guardado` : `${Icons.heart(4, false)} Guardar`, 
@@ -226,6 +228,95 @@ export function renderCarDetailPage(container: HTMLElement): void {
             })}
           </div>
         </div>
+
+        <div class="mt-12">
+          <div class="mb-6">
+            <h2 class="text-2xl font-bold text-slate-900">Preguntas públicas</h2>
+            <p class="mt-2 text-sm text-slate-600">
+              ${isPublished ? "Los compradores pueden dejar preguntas públicas y solo el vendedor de esta publicación puede responderlas." : "Las preguntas públicas están disponibles solo para autos publicados por vendedores."}
+            </p>
+          </div>
+
+          ${
+            isPublished
+              ? `
+                ${
+                  user && user.role === "buyer"
+                    ? `
+                      <div class="rounded-3xl border border-slate-200 bg-white/80 p-6">
+                        <label for="public-question-input" class="block text-sm font-semibold text-slate-900">Haz una pregunta pública</label>
+                        <textarea id="public-question-input" rows="3" placeholder="Ej: ¿Tiene service oficial al día?" class="mt-3 w-full rounded-2xl border border-slate-200 px-4 py-3 text-slate-900 focus:border-[#e76e1d] focus:outline-none focus:ring-1 focus:ring-[#e76e1d]"></textarea>
+                        <div class="mt-4 flex justify-end">
+                          ${Button({ id: "submit-public-question", text: "Publicar pregunta", variant: "primary" })}
+                        </div>
+                      </div>
+                    `
+                    : ""
+                }
+
+                <div class="mt-6 space-y-4">
+                  ${
+                    publicQuestions.length > 0
+                      ? publicQuestions
+                          .map((item) => {
+                            const buyerName = getUserById(item.buyerId)?.name || "Comprador";
+                            const canAnswer = !!user && user.role === "seller" && isOwner && !item.answer;
+
+                            return `
+                              <article class="rounded-3xl border border-slate-200 bg-white/80 p-6">
+                                <div class="flex items-center justify-between gap-4">
+                                  <div>
+                                    <p class="text-sm font-semibold text-slate-900">${buyerName}</p>
+                                    <p class="text-xs uppercase tracking-[0.22em] text-slate-500">${new Date(item.createdAt).toLocaleDateString("es-AR")}</p>
+                                  </div>
+                                  <span class="rounded-full bg-[#fff4eb] px-3 py-1 text-xs font-semibold text-[#c9540a]">
+                                    ${item.answer ? "Respondida" : "Pendiente"}
+                                  </span>
+                                </div>
+                                <p class="mt-4 leading-7 text-slate-700">${item.question}</p>
+
+                                ${
+                                  item.answer
+                                    ? `
+                                      <div class="seller-answer-card mt-5 rounded-2xl border border-[#e76e1d]/20 bg-[#fff8f2] p-4">
+                                        <p class="text-xs font-semibold uppercase tracking-[0.22em] text-[#c9540a]">Respuesta del vendedor</p>
+                                        <p class="seller-answer-text mt-2 leading-7 text-slate-700">${item.answer}</p>
+                                      </div>
+                                    `
+                                    : canAnswer
+                                      ? `
+                                        <div class="mt-5">
+                                          <label for="answer-${item.id}" class="block text-sm font-semibold text-slate-900">Responder públicamente</label>
+                                          <textarea id="answer-${item.id}" data-answer-input="${item.id}" rows="3" placeholder="Escribe una respuesta útil para todos los compradores." class="mt-3 w-full rounded-2xl border border-slate-200 px-4 py-3 text-slate-900 focus:border-[#e76e1d] focus:outline-none focus:ring-1 focus:ring-[#e76e1d]"></textarea>
+                                          <div class="mt-4 flex justify-end">
+                                            ${Button({ id: `reply-${item.id}`, text: "Responder", variant: "secondary" })}
+                                          </div>
+                                        </div>
+                                      `
+                                      : `
+                                        <p class="mt-5 text-sm text-slate-500">El vendedor aún no respondió esta pregunta.</p>
+                                      `
+                                }
+                              </article>
+                            `;
+                          })
+                          .join("")
+                      : `
+                        <div class="rounded-3xl border border-slate-200 bg-white/80 p-8 text-center">
+                          <p class="text-base font-semibold text-slate-900">Todavía no hay preguntas.</p>
+                          <p class="mt-2 text-sm text-slate-600">Sé el primero en consultar algo sobre esta publicación.</p>
+                        </div>
+                      `
+                  }
+                </div>
+              `
+              : `
+                <div class="rounded-3xl border border-slate-200 bg-white/80 p-8">
+                  <p class="text-sm text-slate-600">Este vehículo pertenece al catálogo base y no tiene un vendedor asociado para preguntas públicas.</p>
+                </div>
+              `
+          }
+        </div>
       </div>
     </main>
 
@@ -247,6 +338,8 @@ export function renderCarDetailPage(container: HTMLElement): void {
       </div>
     </div>
   `;
+
+  NavBarListeners();
 
   // Carrusel functionality
   let currentImageIndex = 0;
@@ -323,43 +416,13 @@ export function renderCarDetailPage(container: HTMLElement): void {
     }
   });
 
-  document.getElementById("navbar-brand")?.addEventListener("click", (e) => {
-    e.preventDefault();
-    navigateTo(ROUTES.landing);
-  });
 
-  document.querySelector("#nav-about")?.addEventListener("click", (e) => {
-    e.preventDefault();
-    navigateTo(ROUTES.about);
-  });
 
-  document.querySelector("#nav-home-link")?.addEventListener("click", (e) => {
-    e.preventDefault();
-    navigateTo(ROUTES.home);
-  });
 
-  document.querySelector("#nav-favorites")?.addEventListener("click", (e) => {
-    e.preventDefault();
-    navigateTo(ROUTES.favorites);
-  });
 
-  document.querySelector("#nav-logout")?.addEventListener("click", () => {
-    logout();
-    navigateTo(ROUTES.landing);
-  });
 
-  document.querySelector("#nav-login")?.addEventListener("click", () => {
-    window.open("/login", "_blank");
-  });
 
-  document.querySelector("#nav-register")?.addEventListener("click", () => {
-    window.open("/register", "_blank");
-  });
 
-  document.querySelector("#contact-seller")?.addEventListener("click", () => {
-    // Implementar contacto con vendedor
-    alert("Funcionalidad de contacto próximamente");
-  });
 
   document.querySelector("#buy-now")?.addEventListener("click", () => {
     // Implementar compra
@@ -403,5 +466,56 @@ export function renderCarDetailPage(container: HTMLElement): void {
         btn.innerHTML = `${Icons.heart(4, false)} Guardar`;
       }
     }
+  });
+
+  document.getElementById("submit-public-question")?.addEventListener("click", () => {
+    if (!publishedCar || !user || user.role !== "buyer") return;
+
+    const input = document.getElementById("public-question-input") as HTMLTextAreaElement | null;
+    const question = input?.value.trim() || "";
+
+    if (question.length < 8) {
+      showToast("Escribe una pregunta un poco más específica", "error");
+      return;
+    }
+
+    addPublicQuestion({
+      carId: publishedCar.id,
+      buyerId: user.id,
+      sellerId: publishedCar.sellerId,
+      question,
+    });
+
+    showToast("Tu pregunta se publicó correctamente", "success");
+    renderCarDetailPage(container);
+  });
+
+  document.querySelectorAll<HTMLElement>("[id^='reply-question_']").forEach((button) => {
+    button.addEventListener("click", () => {
+      if (!publishedCar || !user || user.role !== "seller" || !isOwner) return;
+
+      const questionId = button.id.replace("reply-", "");
+      const input = document.querySelector<HTMLTextAreaElement>(`[data-answer-input="${questionId}"]`);
+      const answer = input?.value.trim() || "";
+
+      if (answer.length < 8) {
+        showToast("La respuesta debe tener al menos 8 caracteres", "error");
+        return;
+      }
+
+      const saved = answerPublicQuestion({
+        questionId,
+        sellerId: user.id,
+        answer,
+      });
+
+      if (!saved) {
+        showToast("No se pudo guardar la respuesta", "error");
+        return;
+      }
+
+      showToast("Respuesta publicada correctamente", "success");
+      renderCarDetailPage(container);
+    });
   });
 }

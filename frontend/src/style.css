@@ -187,6 +187,15 @@
   color: #ffe7d1 !important;
 }
 
+:root[data-theme="dark"] .seller-answer-card {
+  background-color: rgba(255, 138, 61, 0.14) !important;
+  border-color: rgba(255, 138, 61, 0.3) !important;
+}
+
+:root[data-theme="dark"] .seller-answer-text {
+  color: #ffe7d1 !important;
+}
+
 :root[data-theme="dark"] .ai-opinion-card {
   background: linear-gradient(135deg, rgba(255, 138, 61, 0.18), rgba(40, 24, 14, 0.92)) !important;
   border-color: rgba(255, 138, 61, 0.32) !important;
