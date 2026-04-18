@@ -2,14 +2,25 @@ import { Button } from "../components/Button";
 import { Card } from "../components/Card";
 import { ErrorMessage } from "../components/ErrorMessage";
 import { Input } from "../components/Input";
+import { ThemeToggle } from "../components/ThemeToggle";
+import { Icons } from "../utils/icons";
 import { login } from "../services/auth";
 import { navigateTo, ROUTES } from "../utils/router";
 
 export function renderLoginPage(container: HTMLElement): void {
   container.innerHTML = `
-    <main class="min-h-screen app-bg px-5 py-10 text-slate-900 sm:px-8">
+    <main class="min-h-screen app-bg px-5 py-10 text-slate-900 sm:px-8 pt-20">
+      <div class="fixed right-5 top-5 z-50">
+        ${ThemeToggle()}
+      </div>
       <div class="mx-auto flex min-h-[calc(100vh-80px)] max-w-6xl items-center justify-center">
         <div class="w-full max-w-xl">
+          <div class="mb-6">
+            <button id="back-btn" class="flex items-center gap-2 text-[#e76e1d] transition-colors font-medium hover:text-[#d45a0a]">
+              ${Icons.chevronLeft(5)}
+              Volver al inicio
+            </button>
+          </div>
           ${Card({
             className: "p-8 sm:p-10",
             children: `
@@ -86,6 +97,10 @@ export function renderLoginPage(container: HTMLElement): void {
   if (!form || !emailInput || !passwordInput || !errorBox || !errorText) {
     return;
   }
+
+  document.querySelector("#back-btn")?.addEventListener("click", () => {
+    navigateTo(ROUTES.landing);
+  });
 
   document.querySelector("#fill-buyer")?.addEventListener("click", () => {
     emailInput.value = "buyer@autopoint.com";

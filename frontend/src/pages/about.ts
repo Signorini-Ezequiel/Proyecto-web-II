@@ -1,4 +1,5 @@
 import { Button } from "../components/Button";
+import { ThemeToggle } from "../components/ThemeToggle";
 import { isAuthenticated, getSessionUser } from "../services/auth";
 import { navigateTo, ROUTES } from "../utils/router";
 
@@ -6,7 +7,7 @@ export function renderAboutPage(container: HTMLElement): void {
   const isLoggedIn = isAuthenticated();
   const user = isLoggedIn ? getSessionUser() : null;
   container.innerHTML = `
-    <main class="min-h-screen app-bg text-slate-900">
+    <main class="min-h-screen app-bg text-slate-900 pt-20">
       <header class="sticky top-0 z-20 border-b border-slate-200 app-bg/90 backdrop-blur">
         <div class="mx-auto flex max-w-7xl items-center justify-between px-5 py-4 sm:px-8">
           <div>
@@ -15,6 +16,7 @@ export function renderAboutPage(container: HTMLElement): void {
           </div>
 
           <nav class="flex items-center gap-3">
+            ${ThemeToggle({ showLabel: false })}
             ${
               isLoggedIn
                 ? `
@@ -114,11 +116,11 @@ export function renderAboutPage(container: HTMLElement): void {
 
   if (!isLoggedIn) {
     document.querySelector("#go-login")?.addEventListener("click", () => {
-      window.open("/login", "_blank");
+      navigateTo(ROUTES.login);
     });
 
     document.querySelector("#go-register")?.addEventListener("click", () => {
-      window.open("/register", "_blank");
+      navigateTo(ROUTES.register);
     });
   }
 }

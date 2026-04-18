@@ -16,7 +16,7 @@ export function Button({
   fullWidth = false,
 }: ButtonProps): string {
   const baseClasses =
-    "inline-flex h-11 items-center justify-center rounded-2xl px-5 text-sm font-semibold transition duration-200 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-60";
+    "inline-flex h-11 items-center justify-center rounded-2xl px-5 text-sm font-semibold transition duration-200 hover:-translate-y-px active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-60";
 
   const widthClass = fullWidth ? "w-full" : "";
 

@@ -1,9 +1,8 @@
-import { Card } from "../components/Card";
-import { StatCard } from "../components/StatCard";
-import { NavBar } from "../components/NavBar";
-import { getSessionUser, logout } from "../services/auth";
+import { NavBar, NavBarListeners } from "../components/NavBar";
+import { getSessionUser, logout, getUserById } from "../services/auth";
 import { navigateTo, ROUTES } from "../utils/router";
-import { CARS, filterCars } from "../data/cars";
+import { filterCars } from "../data/cars";
+import { getAllCarsForDisplay, getPublishedCarById, getPublishedCarsBySeller } from "../services/published-cars";
 import { setCurrentCarId } from "./car-detail";
 import { isFavorite, toggleFavorite } from "../services/favorites";
 import { Icons } from "../utils/icons";
@@ -18,45 +17,58 @@ export function renderHomePage(container: HTMLElement): void {
 
   const isSeller = user.role === "seller";
 
-  // Obtener valores únicos para los filtros
-  const makes = [...new Set(CARS.map(c => c.make))].sort();
-  const locations = [...new Set(CARS.map(c => c.location))].sort();
-  const fuels = [...new Set(CARS.map(c => c.fuel))].sort();
-  const transmissions = [...new Set(CARS.map(c => c.transmission))].sort();
-  const years = [...new Set(CARS.map(c => c.year))].sort((a, b) => b - a);
-  const minPrice = Math.min(...CARS.map(c => c.price));
-  const maxPrice = Math.max(...CARS.map(c => c.price));
+  // Obtener autos a mostrar
+  const allCars: any[] = getAllCarsForDisplay();
+  const carsToShow = isSeller ? getPublishedCarsBySeller(user.id).map(published => ({
+    id: published.id,
+    make: published.make,
+    model: published.model,
+    year: published.year,
+    price: published.price,
+    mileage: published.mileage,
+    transmission: published.transmission,
+    fuel: published.fuel,
+    color: published.color,
+    location: published.location,
+    description: published.description,
+    images: published.images,
+    specs: published.specs || {}
+  })) : allCars;
+
+  // Variables para filtros (solo para compradores)
+  let makes: string[] = [];
+  let locations: string[] = [];
+  let fuels: string[] = [];
+  let transmissions: string[] = [];
+  let years: number[] = [];
+  let minPrice = 0;
+  let maxPrice = 0;
+
+  if (!isSeller) {
+    makes = [...new Set(allCars.map((c: any) => c.make))].sort() as string[];
+    locations = [...new Set(allCars.map((c: any) => c.location))].sort() as string[];
+    fuels = [...new Set(allCars.map((c: any) => c.fuel))].sort() as string[];
+    transmissions = [...new Set(allCars.map((c: any) => c.transmission))].sort() as string[];
+    years = [...new Set(allCars.map((c: any) => c.year))].sort((a: number, b: number) => b - a) as number[];
+    minPrice = Math.min(...allCars.map((c: any) => c.price));
+    maxPrice = Math.max(...allCars.map((c: any) => c.price));
+  }
 
   container.innerHTML = `
-    <main class="min-h-screen app-bg text-slate-900">
+    <main class="min-h-screen app-bg text-slate-900 pt-20">
       ${NavBar({ showAbout: false, isLandingPage: false })}
 
       <div class="mx-auto max-w-7xl px-5 py-8 sm:px-8">
         ${
           isSeller
             ? `
-              <section class="grid gap-6">
-                ${Card({
-                  children: `
-                    <p class="text-sm uppercase tracking-[0.25em] text-[#e76e1d]">
-                      Gestión comercial
-                    </p>
-                    <h2 class="mt-3 text-3xl font-bold tracking-tight text-slate-900">
-                      Bienvenido, ${user.name}
-                    </h2>
-                    <p class="mt-4 text-sm leading-7 text-slate-600">
-                      Desde acá vas a poder administrar publicaciones, consultas recibidas, métricas y estado de tus vehículos.
-                    </p>
-
-                    <div class="mt-8 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-                      ${StatCard({ title: "Publicaciones activas", value: "12", subtitle: "3 destacadas" })}
-                      ${StatCard({ title: "Consultas recibidas", value: "34", subtitle: "7 sin responder" })}
-                      ${StatCard({ title: "Vehículos reservados", value: "4", subtitle: "1 con entrega próxima" })}
-                      ${StatCard({ title: "Precio estimado IA", value: "18 análisis", subtitle: "últimos 30 días" })}
-                    </div>
-                  `,
-                })}
-              </section>
+              <div class="flex items-center justify-between mb-8">
+                <h1 class="text-3xl font-bold text-slate-900">Mis publicaciones</h1>
+                <button id="publish-btn" class="rounded-lg bg-[#e76e1d] px-6 py-3 font-semibold text-white hover:bg-[#d45a0a] transition-colors">
+                  Publicar nuevo vehículo
+                </button>
+              </div>
+              <div id="cars-container" class="grid gap-6 md:grid-cols-2 lg:grid-cols-3"></div>
             `
             : `
               <!-- Buscador -->
@@ -85,17 +97,23 @@ export function renderHomePage(container: HTMLElement): void {
                   <div id="filters-content" class="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
                     <div>
                       <label class="block text-xs uppercase tracking-widest text-slate-600 mb-2">Marca</label>
-                      <select id="filter-make" class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:border-[#e76e1d]">
-                        <option value="">Todas las marcas</option>
-                        ${makes.map(make => `<option value="${make}">${make}</option>`).join('')}
-                      </select>
+                      <div class="relative">
+                        <input type="text" id="filter-make-search" placeholder="Buscar marca..." class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:border-[#e76e1d]">
+                        <input type="hidden" id="filter-make">
+                        <div id="filter-make-dropdown" class="hidden absolute z-10 top-full left-0 right-0 mt-1 bg-white border border-slate-200 rounded-lg shadow-lg max-h-48 overflow-y-auto">
+                          <!-- Se rellena dinámicamente -->
+                        </div>
+                      </div>
                     </div>
                     <div>
                       <label class="block text-xs uppercase tracking-widest text-slate-600 mb-2">Ubicación</label>
-                      <select id="filter-location" class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:border-[#e76e1d]">
-                        <option value="">Todas las ubicaciones</option>
-                        ${locations.map(loc => `<option value="${loc}">${loc}</option>`).join('')}
-                      </select>
+                      <div class="relative">
+                        <input type="text" id="filter-location-search" placeholder="Buscar ubicación..." class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:border-[#e76e1d]">
+                        <input type="hidden" id="filter-location">
+                        <div id="filter-location-dropdown" class="hidden absolute z-10 top-full left-0 right-0 mt-1 bg-white border border-slate-200 rounded-lg shadow-lg max-h-48 overflow-y-auto">
+                          <!-- Se rellena dinámicamente -->
+                        </div>
+                      </div>
                     </div>
                     <div>
                       <label class="block text-xs uppercase tracking-widest text-slate-600 mb-2">Combustible</label>
@@ -113,10 +131,13 @@ export function renderHomePage(container: HTMLElement): void {
                     </div>
                     <div>
                       <label class="block text-xs uppercase tracking-widest text-slate-600 mb-2">Año mínimo</label>
-                      <select id="filter-year" class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:border-[#e76e1d]">
-                        <option value="">Cualquier año</option>
-                        ${years.map(year => `<option value="${year}">${year}</option>`).join('')}
-                      </select>
+                      <div class="relative">
+                        <input type="text" id="filter-year-search" placeholder="Buscar año..." class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:border-[#e76e1d]">
+                        <input type="hidden" id="filter-year">
+                        <div id="filter-year-dropdown" class="hidden absolute z-10 top-full left-0 right-0 mt-1 bg-white border border-slate-200 rounded-lg shadow-lg max-h-48 overflow-y-auto">
+                          <!-- Se rellena dinámicamente -->
+                        </div>
+                      </div>
                     </div>
                   </div>
 
@@ -138,7 +159,7 @@ export function renderHomePage(container: HTMLElement): void {
                 <div class="flex items-center justify-between mb-6">
                   <h2 class="text-xl font-semibold text-slate-900">Autos disponibles</h2>
                   <button id="scroll-top" class="hidden fixed bottom-8 right-8 z-50 rounded-full bg-[#e76e1d] text-white p-3 hover:bg-[#d45a0a] transition-colors shadow-xl" title="Volver al inicio">
-                    ${Icons.arrowUp(5)}
+                    ${Icons.chevronUp(5)}
                   </button>
                 </div>
                 <div id="cars-container" class="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
@@ -151,41 +172,18 @@ export function renderHomePage(container: HTMLElement): void {
     </main>
   `;
 
-  // Event listeners
-  document.querySelector("#navbar-brand")?.addEventListener("click", (e) => {
-    e.preventDefault();
-    navigateTo(ROUTES.landing);
-  });
+  // Listeners de navegación SPA y logout del NavBar
+  NavBarListeners();
 
-  document.querySelector("#nav-about")?.addEventListener("click", (e) => {
-    e.preventDefault();
-    navigateTo(ROUTES.about);
-  });
+  if (isSeller) {
+    renderCars(carsToShow);
+    // Botón publicar vehículo
+    document.getElementById("publish-btn")?.addEventListener("click", () => {
+      navigateTo(ROUTES.publish);
+    });
 
-  document.querySelector("#nav-home-link")?.addEventListener("click", (e) => {
-    e.preventDefault();
-    navigateTo(ROUTES.home);
-  });
-
-  document.querySelector("#nav-favorites")?.addEventListener("click", (e) => {
-    e.preventDefault();
-    navigateTo(ROUTES.favorites);
-  });
-
-  document.querySelector("#nav-logout")?.addEventListener("click", () => {
-    logout();
-    navigateTo(ROUTES.landing);
-  });
-
-  document.querySelector("#nav-login")?.addEventListener("click", () => {
-    window.open("/login", "_blank");
-  });
-
-  document.querySelector("#nav-register")?.addEventListener("click", () => {
-    window.open("/register", "_blank");
-  });
-
-  if (isSeller) return; // Si es seller, no mostrar más
+    return;
+  } // Si es seller, no mostrar más
 
   // Logout button
   document.querySelector("#logout-button")?.addEventListener("click", () => {
@@ -194,7 +192,7 @@ export function renderHomePage(container: HTMLElement): void {
   });
 
   // Función para renderizar autos
-  function renderCars(cars = CARS) {
+  function renderCars(cars: any[]) {
     const container = document.getElementById("cars-container");
     if (!container) return;
 
@@ -207,32 +205,44 @@ export function renderHomePage(container: HTMLElement): void {
       return;
     }
 
-    container.innerHTML = cars.map(car => `
-      <div class="car-card rounded-3xl border border-slate-200 bg-white/80 overflow-hidden hover:shadow-lg transition-shadow" data-car-id="${car.id}">
-        <div class="relative aspect-video bg-slate-100 group cursor-pointer">
-          <img src="${car.images[0]}" alt="${car.make} ${car.model}" class="w-full h-full object-cover car-main-image">
-          <div class="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors flex items-center justify-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-            <button class="car-prev-btn rounded-full bg-white/80 p-2 hover:bg-white">
-              ${Icons.chevronLeft(4)}
-            </button>
-            <button class="car-next-btn rounded-full bg-white/80 p-2 hover:bg-white">
-              ${Icons.chevronRight(4)}
-            </button>
+    container.innerHTML = cars.map((car: any) => {
+      const publishedCar = getPublishedCarById(car.id);
+      const isOwner = publishedCar && publishedCar.sellerId === user!.id;
+      const sellerName = publishedCar ? getUserById(publishedCar.sellerId)?.name : null;
+      
+      return `
+        <div class="car-card rounded-3xl border border-slate-200 bg-white/80 overflow-hidden hover:shadow-lg transition-shadow" data-car-id="${car.id}">
+          <div class="relative aspect-video bg-slate-100 group cursor-pointer">
+            <img src="${car.images[0]}" alt="${car.make} ${car.model}" class="w-full h-full object-cover car-main-image">
+            <div class="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors flex items-center justify-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+              <button class="car-prev-btn rounded-full bg-white/80 p-2 hover:bg-white">
+                ${Icons.chevronLeft(4)}
+              </button>
+              <button class="car-next-btn rounded-full bg-white/80 p-2 hover:bg-white">
+                ${Icons.chevronRight(4)}
+              </button>
+            </div>
+            ${!isOwner ? `<button class="favorite-btn absolute top-3 right-3 rounded-full bg-white/80 p-2 hover:bg-white" data-car-id="${car.id}">
+              ${isFavorite(car.id) ? Icons.heart(5, true) : Icons.heart(5, false)}
+            </button>` : ''}
+            ${isOwner ? `
+              <button class="edit-btn absolute top-3 left-3 rounded-full bg-[#e76e1d] text-white p-2 hover:bg-[#d45a0a] transition-colors" data-car-id="${car.id}" title="Editar vehículo">
+                ${Icons.edit(4)}
+              </button>
+            ` : ''}
+            <div class="absolute bottom-2 right-2 text-xs text-white bg-black/50 px-2 py-1 rounded">
+              <span class="car-image-counter">1</span>/${car.images.length}
+            </div>
           </div>
-          <button class="favorite-btn absolute top-3 right-3 rounded-full bg-white/80 p-2 hover:bg-white" data-car-id="${car.id}">
-            ${isFavorite(car.id) ? Icons.heart(5, true) : Icons.heart(5, false)}
-          </button>
-          <div class="absolute bottom-2 right-2 text-xs text-white bg-black/50 px-2 py-1 rounded">
-            <span class="car-image-counter">1</span>/${car.images.length}
+          <div class="p-6 cursor-pointer car-details">
+            <h3 class="font-semibold text-slate-900">${car.make} ${car.model} ${car.year}</h3>
+            <p class="mt-1 text-sm text-slate-600">${car.mileage.toLocaleString()} km · ${car.transmission} · ${car.location}</p>
+            <p class="mt-2 text-lg font-bold text-[#e76e1d]">US$ ${car.price.toLocaleString()}</p>
+            <p class="mt-1 text-sm text-slate-500">Publicado por: ${sellerName || 'N/A'}</p>
           </div>
         </div>
-        <div class="p-6 cursor-pointer car-details">
-          <h3 class="font-semibold text-slate-900">${car.make} ${car.model} ${car.year}</h3>
-          <p class="mt-1 text-sm text-slate-600">${car.mileage.toLocaleString()} km · ${car.transmission} · ${car.location}</p>
-          <p class="mt-2 text-lg font-bold text-[#e76e1d]">US$ ${car.price.toLocaleString()}</p>
-        </div>
-      </div>
-    `).join('');
+      `;
+    }).join('');
 
     // Event listeners para tarjetas
     document.querySelectorAll('.car-card').forEach(card => {
@@ -242,8 +252,14 @@ export function renderHomePage(container: HTMLElement): void {
       card.addEventListener('click', (e) => {
         if (!(e.target as HTMLElement).closest('.favorite-btn, .car-prev-btn, .car-next-btn')) {
           sessionStorage.setItem("previousPage", ROUTES.home);
-          setCurrentCarId(carId!);
-          navigateTo(ROUTES.carDetail);
+          const publishedCar = getPublishedCarById(carId!);
+          if (publishedCar) {
+            setCurrentCarId(carId!, true);
+            navigateTo(ROUTES.carDetail);
+          } else {
+            setCurrentCarId(carId!, false);
+            navigateTo(ROUTES.carDetail);
+          }
         }
       });
 
@@ -256,9 +272,15 @@ export function renderHomePage(container: HTMLElement): void {
         btn.innerHTML = isFavorite(carId!) ? Icons.heart(5, true) : Icons.heart(5, false);
       });
 
+      // Botón editar (solo para propietarios)
+      card.querySelector('.edit-btn')?.addEventListener('click', (e) => {
+        e.stopPropagation();
+        navigateTo(`${ROUTES.editCar}?id=${carId}`);
+      });
+
       // Carrusel en tarjeta
       let imageIndex = 0;
-      const car = CARS.find(c => c.id === carId);
+      const car = cars.find(c => c.id === carId);
       if (!car) return;
 
       const mainImage = card.querySelector('.car-main-image') as HTMLImageElement;
@@ -286,11 +308,11 @@ export function renderHomePage(container: HTMLElement): void {
   // Función para aplicar filtros
   function applyFilters() {
     const searchQuery = (document.getElementById('search-query') as HTMLInputElement)?.value || '';
-    const make = (document.getElementById('filter-make') as HTMLSelectElement)?.value || '';
-    const location = (document.getElementById('filter-location') as HTMLSelectElement)?.value || '';
+    const make = (document.getElementById('filter-make') as HTMLInputElement)?.value || '';
+    const location = (document.getElementById('filter-location') as HTMLInputElement)?.value || '';
     const fuel = (document.getElementById('filter-fuel') as HTMLSelectElement)?.value || '';
     const transmission = (document.getElementById('filter-transmission') as HTMLSelectElement)?.value || '';
-    const minYear = (document.getElementById('filter-year') as HTMLSelectElement)?.value ? parseInt((document.getElementById('filter-year') as HTMLSelectElement).value) : 0;
+    const minYear = (document.getElementById('filter-year') as HTMLInputElement)?.value ? parseInt((document.getElementById('filter-year') as HTMLInputElement).value) : 0;
     const minPrice = parseInt((document.getElementById('filter-min-price') as HTMLInputElement)?.value || '0');
     const maxPrice = parseInt((document.getElementById('filter-max-price') as HTMLInputElement)?.value || '999999');
 
@@ -311,7 +333,7 @@ export function renderHomePage(container: HTMLElement): void {
       minYear: minYear > 0 ? minYear : undefined,
       minPrice,
       maxPrice
-    });
+    }, allCars);
 
     renderCars(filtered);
   }
@@ -339,17 +361,69 @@ export function renderHomePage(container: HTMLElement): void {
   // Limpiar filtros
   document.getElementById('clear-filters')?.addEventListener('click', () => {
     (document.getElementById('search-query') as HTMLInputElement).value = '';
-    (document.getElementById('filter-make') as HTMLSelectElement).value = '';
-    (document.getElementById('filter-location') as HTMLSelectElement).value = '';
+    (document.getElementById('filter-make-search') as HTMLInputElement).value = '';
+    (document.getElementById('filter-make') as HTMLInputElement).value = '';
+    (document.getElementById('filter-location-search') as HTMLInputElement).value = '';
+    (document.getElementById('filter-location') as HTMLInputElement).value = '';
     (document.getElementById('filter-fuel') as HTMLSelectElement).value = '';
     (document.getElementById('filter-transmission') as HTMLSelectElement).value = '';
-    (document.getElementById('filter-year') as HTMLSelectElement).value = '';
+    (document.getElementById('filter-year-search') as HTMLInputElement).value = '';
+    (document.getElementById('filter-year') as HTMLInputElement).value = '';
     (document.getElementById('filter-min-price') as HTMLInputElement).value = minPrice.toString();
     (document.getElementById('filter-max-price') as HTMLInputElement).value = maxPrice.toString();
     (document.getElementById('min-price-display') as HTMLElement).textContent = `$${minPrice.toLocaleString()}`;
     (document.getElementById('max-price-display') as HTMLElement).textContent = `$${maxPrice.toLocaleString()}`;
     applyFilters();
   });
+
+  // Funciones para dropdowns con búsqueda
+  function renderDropdown(searchId: string, dropdownId: string, hiddenId: string, options: string[]) {
+    const searchInput = document.getElementById(searchId) as HTMLInputElement;
+    const dropdown = document.getElementById(dropdownId) as HTMLElement;
+    const hiddenInput = document.getElementById(hiddenId) as HTMLInputElement;
+
+    function updateDropdown(filter = "") {
+      const filtered = options.filter(option => option.toLowerCase().includes(filter.toLowerCase()));
+      dropdown.innerHTML = filtered.length > 0 
+        ? filtered.map(option => `<div class="dropdown-option cursor-pointer px-4 py-2 text-sm hover:bg-slate-100" data-value="${option}">${option}</div>`).join('')
+        : '<div class="px-4 py-2 text-sm text-slate-500">No se encontraron resultados</div>';
+    }
+
+    searchInput.addEventListener('focus', () => {
+      dropdown.classList.remove('hidden');
+      updateDropdown(searchInput.value);
+    });
+
+    searchInput.addEventListener('input', () => {
+      updateDropdown(searchInput.value);
+    });
+
+    dropdown.addEventListener('click', (e) => {
+      const target = e.target as HTMLElement;
+      if (target.classList.contains('dropdown-option')) {
+        const value = target.getAttribute('data-value');
+        searchInput.value = value || '';
+        hiddenInput.value = value || '';
+        dropdown.classList.add('hidden');
+        applyFilters();
+      }
+    });
+
+    document.addEventListener('click', (e) => {
+      if (!searchInput.contains(e.target as Node) && !dropdown.contains(e.target as Node)) {
+        dropdown.classList.add('hidden');
+        if (searchInput.value && !options.includes(searchInput.value)) {
+          searchInput.value = '';
+          hiddenInput.value = '';
+        }
+      }
+    });
+  }
+
+  // Inicializar dropdowns
+  renderDropdown('filter-make-search', 'filter-make-dropdown', 'filter-make', makes);
+  renderDropdown('filter-location-search', 'filter-location-dropdown', 'filter-location', locations);
+  renderDropdown('filter-year-search', 'filter-year-dropdown', 'filter-year', years.map(y => y.toString()));
 
   // Toggle de filtros
   let filtersExpanded = true;
@@ -377,5 +451,5 @@ export function renderHomePage(container: HTMLElement): void {
   }
 
   // Renderizar autos inicialmente
-  renderCars();
+  renderCars(carsToShow);
 }

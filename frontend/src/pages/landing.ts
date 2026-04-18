@@ -1,13 +1,31 @@
 import { Button } from "../components/Button";
 import { Card } from "../components/Card";
+import { ThemeToggle } from "../components/ThemeToggle";
 import { navigateTo, ROUTES } from "../utils/router";
 import { isAuthenticated, getSessionUser } from "../services/auth";
 
 export function renderLandingPage(container: HTMLElement): void {
   const isLoggedIn = isAuthenticated();
   const user = isLoggedIn ? getSessionUser() : null;
+  const navUnderlineClass = "nav-underline-link inline-flex relative !transform-none pb-1 text-sm";
+  const hamburgerButtonClass =
+    "hamburger-button inline-flex h-11 w-11 flex-col items-center justify-center gap-[5px] rounded-[14px] border border-[#e76e1d]/20 bg-white/80 p-0 text-[var(--text)] transition duration-200 hover:-translate-y-px hover:border-[#e76e1d]/50 hover:shadow-[0_10px_24px_rgba(231,110,29,0.14)]";
+  const hamburgerLineClass = "block h-0.5 w-[18px] rounded-full bg-current transition duration-200";
+  const mobilePanelClass =
+    "mobile-nav-panel grid grid-rows-[0fr] overflow-hidden opacity-0 -translate-y-2 transition-[grid-template-rows,opacity,transform] duration-[240ms] ease-out lg:hidden";
+  const mobileLinkClass =
+    "rounded-[18px] border border-[#e76e1d]/15 bg-white/80 px-4 py-3 text-left text-[0.95rem] font-semibold text-[var(--text)] transition duration-200 hover:translate-x-[3px] hover:border-[#e76e1d]/50 hover:text-[var(--brand)]";
+  const mobileActionClass =
+    "rounded-[18px] border border-[#e76e1d]/15 bg-white/80 px-4 py-3 text-left text-[0.95rem] font-semibold text-[var(--text)] transition duration-200 hover:translate-x-[3px] hover:border-[#e76e1d]/50 hover:text-[var(--brand)]";
+  const mobilePrimaryActionClass =
+    "rounded-[18px] border border-[var(--brand)] bg-[var(--brand)] px-4 py-3 text-center text-[0.95rem] font-semibold text-white transition duration-200 hover:translate-x-[3px]";
+  const heroRevealClass = "animate-[landingFadeUp_620ms_ease_both]";
+  const landingHoverClass =
+    "transition-[border-color,box-shadow,transform,background-color] duration-200 hover:-translate-y-1 hover:border-[#e76e1d]/40 hover:shadow-[0_18px_42px_rgba(15,23,42,0.12)]";
+  const quickSearchFieldClass = "quick-search-field !transform-none !shadow-none !transition-none";
+
   container.innerHTML = `
-    <main class="min-h-screen app-bg text-slate-900">
+    <main class="landing-page min-h-screen app-bg text-slate-900">
       <header class="sticky top-0 z-20 border-b border-slate-200 app-bg/90 backdrop-blur">
         <div class="mx-auto flex max-w-7xl items-center justify-between px-5 py-4 sm:px-8">
           <div>
@@ -15,12 +33,13 @@ export function renderLandingPage(container: HTMLElement): void {
             <h1 class="mt-1 text-lg font-semibold text-slate-900">Marketplace de autos usados</h1>
           </div>
 
-          <nav class="flex items-center gap-3">
-            <a href="#" id="nav-about" class="text-sm text-slate-600 hover:text-[#e76e1d] transition-colors">Sobre nosotros</a>
+          <nav class="hidden items-center gap-3 lg:flex">
+            ${ThemeToggle({ showLabel: false })}
+            <a href="#" id="nav-about" class="${navUnderlineClass} text-slate-600">Sobre nosotros</a>
             ${
               isLoggedIn
                 ? `
-                  <div class="hidden rounded-2xl border border-slate-200 bg-white/80 px-4 py-2 text-sm text-slate-600 md:block">
+                  <div class="navbar-user-chip hidden rounded-2xl border border-slate-200 bg-white/80 px-4 py-2 text-sm text-slate-600 !transform-none !animate-none !shadow-none !transition-none md:block">
                     ${user?.name} · ${user?.role === "seller" ? "Vendedor" : "Comprador"}
                   </div>
                   ${Button({ id: "go-home", text: "Ir al panel", variant: "primary" })}
@@ -31,26 +50,64 @@ export function renderLandingPage(container: HTMLElement): void {
                 `
             }
           </nav>
+
+          <div class="flex items-center gap-2 lg:hidden">
+            ${ThemeToggle({ showLabel: false })}
+            <button
+            id="landing-menu-toggle"
+            type="button"
+            class="${hamburgerButtonClass}"
+              aria-label="Abrir menú"
+              aria-controls="landing-mobile-menu"
+              aria-expanded="false"
+              data-mobile-menu-toggle
+          >
+              <span class="${hamburgerLineClass}"></span>
+              <span class="${hamburgerLineClass}"></span>
+              <span class="${hamburgerLineClass}"></span>
+            </button>
+          </div>
+        </div>
+
+        <div id="landing-mobile-menu" class="${mobilePanelClass}">
+          <div class="mx-auto grid min-h-0 max-w-7xl gap-3 px-5 pb-5 sm:px-8">
+            <button type="button" data-landing-route="/about" class="${mobileLinkClass}">Sobre nosotros</button>
+            ${
+              isLoggedIn
+                ? `
+                  <div class="navbar-user-chip rounded-2xl border border-slate-200 bg-white/80 px-4 py-3 text-sm text-slate-600 !transform-none !animate-none !shadow-none !transition-none">
+                    ${user?.name} · ${user?.role === "seller" ? "Vendedor" : "Comprador"}
+                  </div>
+                  <button type="button" data-landing-route="/home" class="${mobilePrimaryActionClass}">Ir al panel</button>
+                `
+                : `
+                  <button type="button" data-landing-open="/login" class="${mobileActionClass}">Iniciar sesión</button>
+                  <button type="button" data-landing-open="/register" class="${mobilePrimaryActionClass}">Crear cuenta</button>
+                `
+            }
+          </div>
         </div>
       </header>
 
-      <section class="mx-auto grid max-w-7xl gap-8 px-5 py-16 sm:px-8 lg:grid-cols-[1.1fr_0.9fr] lg:py-24">
-        <div class="flex flex-col justify-center">
-          <p class="text-sm uppercase tracking-[0.35em] text-[#e76e1d]">
+      <section class="landing-hero mx-auto grid max-w-7xl gap-8 px-5 py-16 sm:px-8 lg:grid-cols-[1.1fr_0.9fr] lg:py-24">
+        <div class="landing-hero-copy flex flex-col justify-center">
+          <p class="${heroRevealClass} text-sm uppercase tracking-[0.35em] text-[#e76e1d] [animation-delay:60ms]">
             Comprá, compará y publicá con más confianza
           </p>
 
-          <h2 class="mt-5 max-w-3xl text-5xl font-bold leading-tight text-slate-900">
-            La plataforma para encontrar o vender autos usados de forma más simple.
+          <h2 class="${heroRevealClass} mt-5 max-w-3xl text-5xl font-bold leading-tight text-slate-900 [animation-delay:140ms]">
+            La plataforma para
+            <br/>
+            <span id="hero-action-word" class="hero-word-rotator inline-block overflow-hidden whitespace-nowrap align-bottom text-[var(--brand)] leading-[inherit] [transition:opacity_220ms_ease,transform_220ms_ease,width_360ms_cubic-bezier(0.22,1,0.36,1)]"><span id="hero-action-word-text" class="inline-block leading-[inherit] align-baseline">encontrar</span></span> autos usados de forma más simple.
           </h2>
 
-          <p class="mt-6 max-w-2xl text-lg leading-8 text-slate-600">
+          <p class="${heroRevealClass} mt-6 max-w-2xl text-lg leading-8 text-slate-600 [animation-delay:220ms]">
             Los sellers publican vehículos, los buyers los buscan y comparan, y la
             plataforma incorpora inteligencia artificial para analizar imágenes,
             estimar el estado del vehículo y sugerir un rango de precio aproximado.
           </p>
 
-          <div class="mt-8 flex flex-wrap gap-4">
+          <div class="${heroRevealClass} mt-8 flex flex-wrap gap-4 [animation-delay:300ms]">
             ${
               isLoggedIn
                 ? Button({ id: "hero-home", text: "Ir al panel", variant: "primary" })
@@ -61,16 +118,16 @@ export function renderLandingPage(container: HTMLElement): void {
             }
           </div>
 
-          <div class="mt-10 grid gap-4 sm:grid-cols-3">
-            <div class="rounded-3xl border border-slate-200 bg-white/80 p-5">
+          <div class="landing-stats mt-10 grid gap-4 sm:grid-cols-3">
+            <div class="landing-stat ${landingHoverClass} animate-[landingFadeUp_620ms_ease_both] rounded-3xl border border-slate-200 bg-white/80 p-5 [animation-delay:380ms]">
               <p class="text-sm text-slate-600">Autos publicados</p>
               <p class="mt-3 text-3xl font-bold text-slate-900">1.240+</p>
             </div>
-            <div class="rounded-3xl border border-slate-200 bg-white/80 p-5">
+            <div class="landing-stat ${landingHoverClass} animate-[landingFadeUp_620ms_ease_both] rounded-3xl border border-slate-200 bg-white/80 p-5 [animation-delay:460ms]">
               <p class="text-sm text-slate-600">Comparaciones activas</p>
               <p class="mt-3 text-3xl font-bold text-slate-900">380</p>
             </div>
-            <div class="rounded-3xl border border-slate-200 bg-white/80 p-5">
+            <div class="landing-stat ${landingHoverClass} animate-[landingFadeUp_620ms_ease_both] rounded-3xl border border-slate-200 bg-white/80 p-5 [animation-delay:540ms]">
               <p class="text-sm text-slate-600">Análisis IA generados</p>
               <p class="mt-3 text-3xl font-bold text-slate-900">920</p>
             </div>
@@ -78,27 +135,27 @@ export function renderLandingPage(container: HTMLElement): void {
         </div>
 
         ${Card({
-          className: "h-fit",
+          className: "landing-panel quick-search-card h-fit animate-[landingFadeUp_620ms_ease_360ms_both,landingFloat_5.5s_ease-in-out_1.1s_infinite]",
           children: `
             <p class="text-sm uppercase tracking-[0.25em] text-[#e76e1d]">Búsqueda rápida</p>
             <h3 class="mt-3 text-2xl font-bold text-slate-900">Encontrá tu próximo auto</h3>
 
             <div class="mt-6 grid gap-4">
-              <div class="rounded-2xl border border-slate-200 bg-white/80 p-4">
+              <div class="${quickSearchFieldClass} rounded-2xl border border-slate-200 bg-white/80 p-4">
                 <p class="text-sm text-slate-600">Marca o modelo</p>
                 <p class="mt-2 font-medium text-slate-900">Toyota Corolla, Amarok, 208...</p>
               </div>
-              <div class="rounded-2xl border border-slate-200 bg-white/80 p-4">
+              <div class="${quickSearchFieldClass} rounded-2xl border border-slate-200 bg-white/80 p-4">
                 <p class="text-sm text-slate-600">Rango de precio</p>
                 <p class="mt-2 font-medium text-slate-900">US$ 10.000 - US$ 35.000</p>
               </div>
-              <div class="rounded-2xl border border-slate-200 bg-white/80 p-4">
+              <div class="${quickSearchFieldClass} rounded-2xl border border-slate-200 bg-white/80 p-4">
                 <p class="text-sm text-slate-600">Ubicación</p>
                 <p class="mt-2 font-medium text-slate-900">Córdoba, Rosario, Buenos Aires</p>
               </div>
             </div>
 
-            <div class="mt-6 rounded-3xl border border-[#e76e1d]/20 bg-[#e76e1d]/10 p-5">
+            <div class="${quickSearchFieldClass} mt-6 rounded-3xl border border-[#e76e1d]/20 bg-[#e76e1d]/10 p-5">
               <p class="font-semibold text-slate-900">Asistente IA</p>
               <p class="mt-2 text-sm leading-6 text-slate-600">
                 Analiza fotos del vehículo, detecta señales visibles de desgaste y sugiere
@@ -112,6 +169,7 @@ export function renderLandingPage(container: HTMLElement): void {
       <section class="mx-auto max-w-7xl px-5 pb-6 sm:px-8">
         <div class="grid gap-6 lg:grid-cols-3">
           ${Card({
+            className: landingHoverClass,
             children: `
               <p class="text-lg font-semibold text-slate-900">Publicaciones de sellers</p>
               <p class="mt-3 text-sm leading-6 text-slate-600">
@@ -121,6 +179,7 @@ export function renderLandingPage(container: HTMLElement): void {
             `,
           })}
           ${Card({
+            className: landingHoverClass,
             children: `
               <p class="text-lg font-semibold text-slate-900">Comparación para buyers</p>
               <p class="mt-3 text-sm leading-6 text-slate-600">
@@ -129,6 +188,7 @@ export function renderLandingPage(container: HTMLElement): void {
             `,
           })}
           ${Card({
+            className: landingHoverClass,
             children: `
               <p class="text-lg font-semibold text-slate-900">Soporte con inteligencia artificial</p>
               <p class="mt-3 text-sm leading-6 text-slate-600">
@@ -142,6 +202,7 @@ export function renderLandingPage(container: HTMLElement): void {
       <section class="mx-auto max-w-7xl px-5 py-10 sm:px-8">
         <div class="grid gap-6 lg:grid-cols-2">
           ${Card({
+            className: landingHoverClass,
             children: `
               <p class="text-sm uppercase tracking-[0.25em] text-[#e76e1d]">Autos destacados</p>
               <div class="mt-5 space-y-3">
@@ -164,6 +225,7 @@ export function renderLandingPage(container: HTMLElement): void {
           })}
 
           ${Card({
+            className: landingHoverClass,
             children: `
               <p class="text-sm uppercase tracking-[0.25em] text-[#e76e1d]">Cómo funciona</p>
               <div class="mt-5 space-y-4">
@@ -193,6 +255,7 @@ export function renderLandingPage(container: HTMLElement): void {
 
         <div class="mt-12 grid gap-6 md:grid-cols-3">
           ${Card({
+            className: landingHoverClass,
             children: `
               <div class="flex items-center gap-3">
                 <div class="h-10 w-10 rounded-full bg-[#e76e1d]/10 flex items-center justify-center">
@@ -209,6 +272,7 @@ export function renderLandingPage(container: HTMLElement): void {
             `,
           })}
           ${Card({
+            className: landingHoverClass,
             children: `
               <div class="flex items-center gap-3">
                 <div class="h-10 w-10 rounded-full bg-[#e76e1d]/10 flex items-center justify-center">
@@ -225,6 +289,7 @@ export function renderLandingPage(container: HTMLElement): void {
             `,
           })}
           ${Card({
+            className: landingHoverClass,
             children: `
               <div class="flex items-center gap-3">
                 <div class="h-10 w-10 rounded-full bg-[#e76e1d]/10 flex items-center justify-center">
@@ -250,10 +315,10 @@ export function renderLandingPage(container: HTMLElement): void {
         </div>
 
         <div class="mt-12 grid gap-8 lg:grid-cols-2">
-          <div class="rounded-3xl border border-slate-200 bg-white/80 p-8">
+          <div class="landing-hover-card group ${landingHoverClass} rounded-3xl border border-slate-200 bg-white/80 p-8">
             <div class="flex items-center gap-4">
               <div class="rounded-2xl bg-[#e76e1d]/10 p-3">
-                <svg class="h-6 w-6 text-[#e76e1d]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <svg class="h-6 w-6 text-[#e76e1d] transition-transform duration-200 group-hover:scale-[1.08]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
                 </svg>
               </div>
@@ -264,10 +329,10 @@ export function renderLandingPage(container: HTMLElement): void {
             </p>
           </div>
 
-          <div class="rounded-3xl border border-slate-200 bg-white/80 p-8">
+          <div class="landing-hover-card group ${landingHoverClass} rounded-3xl border border-slate-200 bg-white/80 p-8">
             <div class="flex items-center gap-4">
               <div class="rounded-2xl bg-[#e76e1d]/10 p-3">
-                <svg class="h-6 w-6 text-[#e76e1d]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <svg class="h-6 w-6 text-[#e76e1d] transition-transform duration-200 group-hover:scale-[1.08]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
                 </svg>
               </div>
@@ -278,10 +343,10 @@ export function renderLandingPage(container: HTMLElement): void {
             </p>
           </div>
 
-          <div class="rounded-3xl border border-slate-200 bg-white/80 p-8">
+          <div class="landing-hover-card group ${landingHoverClass} rounded-3xl border border-slate-200 bg-white/80 p-8">
             <div class="flex items-center gap-4">
               <div class="rounded-2xl bg-[#e76e1d]/10 p-3">
-                <svg class="h-6 w-6 text-[#e76e1d]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <svg class="h-6 w-6 text-[#e76e1d] transition-transform duration-200 group-hover:scale-[1.08]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
                 </svg>
               </div>
@@ -292,10 +357,10 @@ export function renderLandingPage(container: HTMLElement): void {
             </p>
           </div>
 
-          <div class="rounded-3xl border border-slate-200 bg-white/80 p-8">
+          <div class="landing-hover-card group ${landingHoverClass} rounded-3xl border border-slate-200 bg-white/80 p-8">
             <div class="flex items-center gap-4">
               <div class="rounded-2xl bg-[#e76e1d]/10 p-3">
-                <svg class="h-6 w-6 text-[#e76e1d]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <svg class="h-6 w-6 text-[#e76e1d] transition-transform duration-200 group-hover:scale-[1.08]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 4.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
                 </svg>
               </div>
@@ -363,25 +428,167 @@ export function renderLandingPage(container: HTMLElement): void {
     </main>
   `;
 
+    const revealTargets = Array.from(
+        container.querySelectorAll<HTMLElement>(
+            ".landing-page section:not(.landing-hero), .landing-page footer, .landing-page section:not(.landing-hero) .card-surface, .landing-page .landing-hover-card"
+        )
+    );
+
+    revealTargets.forEach((element, index) => {
+        element.classList.add(
+            "opacity-0",
+            "translate-y-[26px]",
+            "transition-[opacity,transform]",
+            "duration-[620ms]",
+            "ease-out",
+            "will-change-[opacity,transform]"
+        );
+        element.style.transitionDelay = `${Math.min(index % 4, 3) * 80}ms`;
+    });
+
+    if ("IntersectionObserver" in window) {
+        const revealObserver = new IntersectionObserver(
+            (entries, observer) => {
+                entries.forEach((entry) => {
+                    if (!entry.isIntersecting) return;
+
+                    entry.target.classList.remove("opacity-0", "translate-y-[26px]");
+                    entry.target.classList.add("opacity-100", "translate-y-0");
+                    observer.unobserve(entry.target);
+                });
+            },
+            { rootMargin: "0px 0px -12% 0px", threshold: 0.12 }
+        );
+
+        revealTargets.forEach((element) => revealObserver.observe(element));
+    } else {
+        revealTargets.forEach((element) => {
+            element.classList.remove("opacity-0", "translate-y-[26px]");
+            element.classList.add("opacity-100", "translate-y-0");
+        });
+    }
+
+    const heroActionWord = document.querySelector<HTMLElement>("#hero-action-word");
+    const heroActionWordText = document.querySelector<HTMLElement>("#hero-action-word-text");
+    const heroWords = ["encontrar", "vender"];
+    let heroWordIndex = 0;
+    const heroWordMeasure = document.createElement("span");
+    heroWordMeasure.className = "hero-word-measure";
+    document.body.appendChild(heroWordMeasure);
+
+    const setHeroWordWidth = (word: string) => {
+        if (!heroActionWord || !document.body.contains(heroActionWord)) return;
+
+        const styles = window.getComputedStyle(heroActionWord);
+        heroWordMeasure.style.font = styles.font;
+        heroWordMeasure.style.fontSize = styles.fontSize;
+        heroWordMeasure.style.fontWeight = styles.fontWeight;
+        heroWordMeasure.style.fontFamily = styles.fontFamily;
+        heroWordMeasure.style.letterSpacing = styles.letterSpacing;
+        heroWordMeasure.textContent = word;
+        heroActionWord.style.width = `${heroWordMeasure.getBoundingClientRect().width}px`;
+    };
+
+    setHeroWordWidth(heroWords[heroWordIndex]);
+
+    const heroWordInterval = window.setInterval(() => {
+        if (
+            !heroActionWord ||
+            !heroActionWordText ||
+            !document.body.contains(heroActionWord) ||
+            !document.body.contains(heroActionWordText)
+        ) {
+            window.clearInterval(heroWordInterval);
+            heroWordMeasure.remove();
+            return;
+        }
+
+        heroWordIndex = (heroWordIndex + 1) % heroWords.length;
+        const nextWord = heroWords[heroWordIndex];
+
+        heroActionWord.classList.add("is-changing");
+        setHeroWordWidth(nextWord);
+
+        window.setTimeout(() => {
+            if (!document.body.contains(heroActionWord) || !document.body.contains(heroActionWordText)) {
+                window.clearInterval(heroWordInterval);
+                heroWordMeasure.remove();
+                return;
+            }
+
+            heroActionWordText.textContent = nextWord;
+            heroActionWord.classList.remove("is-changing");
+        }, 220);
+    }, 2600);
+
+    const closeMobileMenu = () => {
+        document.querySelectorAll<HTMLElement>(".mobile-nav-panel.is-open").forEach((panel) => {
+            panel.classList.remove("is-open");
+        });
+
+        document.querySelectorAll<HTMLButtonElement>("[data-mobile-menu-toggle].is-open").forEach((button) => {
+            button.classList.remove("is-open");
+            button.setAttribute("aria-expanded", "false");
+            button.setAttribute("aria-label", "Abrir menú");
+        });
+    };
+
+    document.querySelectorAll<HTMLButtonElement>("[data-mobile-menu-toggle]").forEach((button) => {
+        button.addEventListener("click", () => {
+            const menuId = button.getAttribute("aria-controls");
+            const menu = menuId ? document.getElementById(menuId) : null;
+            const isOpen = menu?.classList.toggle("is-open") ?? false;
+
+            button.classList.toggle("is-open", isOpen);
+            button.setAttribute("aria-expanded", String(isOpen));
+            button.setAttribute("aria-label", isOpen ? "Cerrar menú" : "Abrir menú");
+        });
+    });
+
+    document.querySelectorAll<HTMLButtonElement>("[data-landing-route]").forEach((button) => {
+        button.addEventListener("click", () => {
+            const route = button.dataset.landingRoute;
+
+            if (!route) return;
+            closeMobileMenu();
+            navigateTo(route);
+        });
+    });
+
+    document.querySelectorAll<HTMLButtonElement>("[data-landing-open]").forEach((button) => {
+        button.addEventListener("click", () => {
+            const route = button.dataset.landingOpen;
+
+            if (!route) return;
+            closeMobileMenu();
+            navigateTo(route);
+        });
+    });
+
     document.querySelector("#go-login")?.addEventListener("click", () => {
-        window.open("/login", "_blank");
+        navigateTo(ROUTES.login);
     });
 
     document.querySelector("#go-register")?.addEventListener("click", () => {
-        window.open("/register", "_blank");
+        navigateTo(ROUTES.register);
     });
 
     document.querySelector("#hero-login")?.addEventListener("click", () => {
-        window.open("/login", "_blank");
+        navigateTo(ROUTES.login);
     });
 
     document.querySelector("#hero-register")?.addEventListener("click", () => {
-        window.open("/register", "_blank");
+        navigateTo(ROUTES.register);
     });
 
     document.querySelector("#nav-about")?.addEventListener("click", (e) => {
         e.preventDefault();
         navigateTo(ROUTES.about);
+    });
+
+    document.querySelector("#nav-comparator")?.addEventListener("click", (e) => {
+        e.preventDefault();
+        navigateTo(ROUTES.comparator);
     });
 
     document.querySelector("#footer-about")?.addEventListener("click", (e) => {
@@ -399,19 +606,19 @@ export function renderLandingPage(container: HTMLElement): void {
         });
     } else {
         document.querySelector("#go-login")?.addEventListener("click", () => {
-            window.open("/login", "_blank");
+            navigateTo(ROUTES.login);
         });
 
         document.querySelector("#go-register")?.addEventListener("click", () => {
-            window.open("/register", "_blank");
+            navigateTo(ROUTES.register);
         });
 
         document.querySelector("#hero-login")?.addEventListener("click", () => {
-            window.open("/login", "_blank");
+            navigateTo(ROUTES.login);
         });
 
         document.querySelector("#hero-register")?.addEventListener("click", () => {
-            window.open("/register", "_blank");
+            navigateTo(ROUTES.register);
         });
     }
 }

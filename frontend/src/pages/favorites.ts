@@ -1,18 +1,42 @@
-import { NavBar } from "../components/NavBar";
+import { NavBar, NavBarListeners } from "../components/NavBar";
 import { navigateTo, ROUTES } from "../utils/router";
 import { CARS } from "../data/cars";
+import { getPublishedCarById } from "../services/published-cars";
 import { getFavorites, toggleFavorite, isFavorite } from "../services/favorites";
 import { setCurrentCarId } from "./car-detail";
-import { logout } from "../services/auth";
 import { Icons } from "../utils/icons";
 
 export function renderFavoritesPage(container: HTMLElement): void {
   const favoriteIds = getFavorites();
-  const favoriteCars = CARS.filter(car => favoriteIds.includes(car.id));
+  const favoriteCars = favoriteIds.map(id => {
+    if (id.startsWith("published_")) {
+      const publishedCar = getPublishedCarById(id);
+      if (publishedCar) {
+        return {
+          id: publishedCar.id,
+          make: publishedCar.make,
+          model: publishedCar.model,
+          year: publishedCar.year,
+          price: publishedCar.price,
+          mileage: publishedCar.mileage,
+          transmission: publishedCar.transmission,
+          fuel: publishedCar.fuel,
+          color: publishedCar.color,
+          location: publishedCar.location,
+          description: publishedCar.description,
+          images: publishedCar.images,
+          specs: publishedCar.specs || {}
+        };
+      }
+    } else {
+      return CARS.find(car => car.id === id);
+    }
+    return null;
+  }).filter(Boolean) as any[];
 
   container.innerHTML = `
-    <main class="min-h-screen app-bg text-slate-900">
-      ${NavBar({ showAbout: false, isFavoritesPage: true })}
+    <main class="min-h-screen app-bg text-slate-900 pt-20">
+      ${NavBar({ showAbout: false })}
 
       <div class="mx-auto max-w-7xl px-5 py-8 sm:px-8">
         <div class="mb-8 flex justify-between items-center">
@@ -21,7 +45,7 @@ export function renderFavoritesPage(container: HTMLElement): void {
             <p class="mt-2 text-slate-600">Tienes ${favoriteCars.length} auto${favoriteCars.length !== 1 ? 's' : ''} guardado${favoriteCars.length !== 1 ? 's' : ''}</p>
           </div>
           <button id="scroll-top" class="hidden rounded-full bg-[#e76e1d] p-3 text-white hover:bg-[#d45a0a] transition-colors fixed bottom-8 right-8 shadow-xl" title="Volver al inicio">
-            ${Icons.arrowUp(6)}
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
           </button>
         </div>
 
@@ -74,34 +98,8 @@ export function renderFavoritesPage(container: HTMLElement): void {
     </main>
   `;
 
-  // Event listeners
-  document.querySelector("#navbar-brand")?.addEventListener("click", (e) => {
-    e.preventDefault();
-    navigateTo(ROUTES.landing);
-  });
-
-  document.querySelector("#nav-about")?.addEventListener("click", (e) => {
-    e.preventDefault();
-    navigateTo(ROUTES.about);
-  });
-
-  document.querySelector("#nav-home-link")?.addEventListener("click", (e) => {
-    e.preventDefault();
-    navigateTo(ROUTES.home);
-  });
-
-  document.querySelector("#nav-logout")?.addEventListener("click", () => {
-    logout();
-    navigateTo(ROUTES.landing);
-  });
-
-  document.querySelector("#nav-login")?.addEventListener("click", () => {
-    window.open("/login", "_blank");
-  });
-
-  document.querySelector("#nav-register")?.addEventListener("click", () => {
-    window.open("/register", "_blank");
-  });
+  // Listeners de navegación SPA y logout del NavBar
+  NavBarListeners();
 
   document.querySelector("#go-search")?.addEventListener("click", () => {
     navigateTo(ROUTES.home);
@@ -126,7 +124,7 @@ export function renderFavoritesPage(container: HTMLElement): void {
     card.addEventListener('click', (e) => {
       if (!(e.target as HTMLElement).closest('.favorite-btn, .car-prev-btn, .car-next-btn')) {
         sessionStorage.setItem("previousPage", ROUTES.favorites);
-        setCurrentCarId(carId!);
+        setCurrentCarId(carId!, carId!.startsWith("published_"));
         navigateTo(ROUTES.carDetail);
       }
     });
@@ -141,7 +139,7 @@ export function renderFavoritesPage(container: HTMLElement): void {
 
     // Carrusel en tarjeta
     let imageIndex = 0;
-    const car = CARS.find(c => c.id === carId);
+    const car = favoriteCars.find(c => c.id === carId);
     if (!car) return;
 
     const mainImage = card.querySelector('.car-main-image') as HTMLImageElement;

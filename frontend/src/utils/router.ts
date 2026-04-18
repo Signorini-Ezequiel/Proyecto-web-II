@@ -6,6 +6,11 @@ export const ROUTES = {
   about: "/about",
   carDetail: "/car-detail",
   favorites: "/favorites",
+  comparator: "/comparator",
+  publish: "/publish",
+  editCar: "/edit-car",
+  profile: "/profile",
+  changePassword: "/change-password",
 } as const;
 
 export function navigateTo(route: string): void {

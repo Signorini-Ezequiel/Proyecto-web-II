@@ -214,8 +214,8 @@ export function filterCars(filters: {
   location?: string;
   minYear?: number;
   searchQuery?: string;
-}): Car[] {
-  return CARS.filter(car => {
+}, cars: Car[] = CARS): Car[] {
+  return cars.filter(car => {
     if (filters.make && car.make !== filters.make) return false;
     if (filters.minPrice && car.price < filters.minPrice) return false;
     if (filters.maxPrice && car.price > filters.maxPrice) return false;

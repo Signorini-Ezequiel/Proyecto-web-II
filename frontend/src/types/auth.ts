@@ -6,6 +6,7 @@ export type MockUser = {
   email: string;
   password: string;
   role: "buyer" | "seller";
+  avatarUrl: string | null;
 };
 
 export type SessionUser = {
@@ -13,6 +14,7 @@ export type SessionUser = {
   name: string;
   email: string;
   role: "buyer" | "seller";
+  avatarUrl: string | null;
 };
 
 export type LoginResult =
