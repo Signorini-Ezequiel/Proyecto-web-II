@@ -4,21 +4,21 @@ import { ErrorMessage } from "../components/ErrorMessage";
 import { Input } from "../components/Input";
 import { Select } from "../components/Select";
 import { ThemeToggle } from "../components/ThemeToggle";
-import { Icons } from "../utils/icons";
-import { register } from "../services/auth";
+import { getPasswordRequirements, register } from "../services/auth";
 import type { UserRole } from "../types/auth";
+import { Icons } from "../utils/icons";
 import { navigateTo, ROUTES } from "../utils/router";
 
 export function renderRegisterPage(container: HTMLElement): void {
   container.innerHTML = `
-    <main class="min-h-screen app-bg px-5 py-10 text-slate-900 sm:px-8 pt-20">
+    <main class="min-h-screen app-bg px-5 py-10 pt-20 text-slate-900 sm:px-8">
       <div class="fixed right-5 top-5 z-50">
         ${ThemeToggle()}
       </div>
       <div class="mx-auto flex min-h-[calc(100vh-80px)] max-w-6xl items-center justify-center">
         <div class="w-full max-w-xl">
           <div class="mb-6">
-            <button id="back-btn" class="flex items-center gap-2 text-[#e76e1d] transition-colors font-medium hover:text-[#d45a0a]">
+            <button id="back-btn" class="flex items-center gap-2 font-medium text-[#e76e1d] transition-colors hover:text-[#d45a0a]">
               ${Icons.chevronLeft(5)}
               Volver al inicio
             </button>
@@ -43,16 +43,17 @@ export function renderRegisterPage(container: HTMLElement): void {
 
                 ${Input({
                   id: "email",
-                  label: "Correo electrónico",
+                  label: "Correo electronico",
                   type: "email",
                   placeholder: "tuemail@ejemplo.com",
                 })}
 
                 ${Input({
                   id: "password",
-                  label: "Contraseña",
+                  label: "Contrasena",
                   type: "password",
-                  placeholder: "Elegí una contraseña",
+                  placeholder: "Elige una contrasena",
+                  hint: getPasswordRequirements(),
                 })}
 
                 ${Select({
@@ -63,6 +64,24 @@ export function renderRegisterPage(container: HTMLElement): void {
                     { value: "seller", label: "Seller" },
                   ],
                 })}
+
+                <div class="space-y-3">
+                  <div class="flex items-center justify-between">
+                    <label for="avatar" class="text-sm font-medium text-slate-700">Foto de perfil</label>
+                    <span class="text-xs text-slate-400">Opcional</span>
+                  </div>
+                  <div class="flex items-center gap-4 rounded-3xl border border-dashed border-[#e76e1d]/30 bg-surface p-4">
+                    <div id="avatar-preview" class="flex h-20 w-20 items-center justify-center overflow-hidden rounded-full bg-[#fff1e6] text-xl font-bold text-[#e76e1d]">
+                      ?
+                    </div>
+                    <div class="flex-1">
+                      <input id="avatar" type="file" accept="image/*" class="block w-full text-sm text-slate-500 file:mr-4 file:rounded-full file:border-0 file:bg-[#fff1e6] file:px-4 file:py-2 file:font-semibold file:text-[#e76e1d] hover:file:bg-[#ffe6d1]" />
+                      <p class="mt-2 text-xs leading-5 text-slate-400">
+                        Se guarda una sola foto por cuenta y podras cambiarla despues desde tu perfil.
+                      </p>
+                    </div>
+                  </div>
+                </div>
 
                 ${ErrorMessage({
                   id: "register-error",
@@ -80,9 +99,9 @@ export function renderRegisterPage(container: HTMLElement): void {
               </form>
 
               <div class="mt-6 text-center text-sm text-slate-600">
-                ¿Ya tenés cuenta?
-                <button id="go-login" class="ml-1 font-medium text-[#e76e1d] hover:text-[#e76e1d]">
-                  Iniciar sesión
+                Ya tenes cuenta?
+                <button id="go-login" class="ml-1 font-medium text-[#e76e1d] hover:text-[#d45a0a]">
+                  Iniciar sesion
                 </button>
               </div>
             `,
@@ -97,8 +116,11 @@ export function renderRegisterPage(container: HTMLElement): void {
   const emailInput = document.querySelector<HTMLInputElement>("#email");
   const passwordInput = document.querySelector<HTMLInputElement>("#password");
   const roleInput = document.querySelector<HTMLSelectElement>("#role");
+  const avatarInput = document.querySelector<HTMLInputElement>("#avatar");
+  const avatarPreview = document.querySelector<HTMLDivElement>("#avatar-preview");
   const errorBox = document.querySelector<HTMLDivElement>("#register-error");
   const errorText = errorBox?.querySelector("p");
+  let avatarUrl: string | null = null;
 
   if (
     !form ||
@@ -106,11 +128,53 @@ export function renderRegisterPage(container: HTMLElement): void {
     !emailInput ||
     !passwordInput ||
     !roleInput ||
+    !avatarInput ||
+    !avatarPreview ||
     !errorBox ||
     !errorText
   ) {
     return;
   }
+
+  const updateAvatarPreview = () => {
+    if (avatarUrl) {
+      avatarPreview.innerHTML = `<img src="${avatarUrl}" alt="Vista previa de foto de perfil" class="h-full w-full object-cover" />`;
+      return;
+    }
+
+    avatarPreview.textContent = nameInput.value.trim().slice(0, 1).toUpperCase() || "?";
+  };
+
+  nameInput.addEventListener("input", updateAvatarPreview);
+
+  avatarInput.addEventListener("change", () => {
+    const file = avatarInput.files?.[0];
+
+    if (!file) {
+      avatarUrl = null;
+      updateAvatarPreview();
+      return;
+    }
+
+    if (!file.type.startsWith("image/")) {
+      errorText.textContent = "Selecciona un archivo de imagen valido.";
+      errorBox.classList.remove("hidden");
+      avatarInput.value = "";
+      avatarUrl = null;
+      updateAvatarPreview();
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      avatarUrl = typeof reader.result === "string" ? reader.result : null;
+      errorBox.classList.add("hidden");
+      updateAvatarPreview();
+    };
+    reader.readAsDataURL(file);
+  });
+
+  updateAvatarPreview();
 
   document.querySelector("#back-btn")?.addEventListener("click", () => {
     navigateTo(ROUTES.landing);
@@ -127,7 +191,8 @@ export function renderRegisterPage(container: HTMLElement): void {
       nameInput.value,
       emailInput.value,
       passwordInput.value,
-      roleInput.value as UserRole
+      roleInput.value as UserRole,
+      avatarUrl
     );
 
     if (!result.ok) {

@@ -266,12 +266,13 @@ export function renderPublishPage(container: HTMLElement, isEditMode = false): v
             <div class="space-y-4">
               <h2 class="text-xl font-semibold text-slate-900">Fotos del vehículo</h2>
 
-              <div class="cursor-pointer rounded-lg border-2 border-dashed border-slate-300 p-8 text-center transition-colors hover:border-[#e76e1d]" id="drop-zone">
+              <div class="cursor-pointer rounded-lg border-2 border-dashed border-[#e76e1d]/30 bg-slate-900 p-8 text-center transition-all hover:border-[#e76e1d] hover:shadow-lg hover:scale-[1.02]" id="drop-zone">
                 <input type="file" id="photo-input" multiple accept="image/*" class="hidden">
                 <div>
-                  <p class="mb-3 text-4xl">🖼️</p>
-                  <p class="mb-1 text-sm font-medium text-slate-900">Arrastra fotos aquí o haz clic para seleccionar</p>
-                  <p class="text-xs text-slate-600">Formatos: JPG, PNG, WebP. Máximo 10 fotos.</p>
+                  <p class="mb-3 text-5xl">📸</p>
+                  <p class="mb-1 text-lg font-semibold text-white">Arrastra fotos aquí o haz clic para seleccionar</p>
+                  <p class="text-sm text-white">Formatos: JPG, PNG, WebP. Máximo 10 fotos.</p>
+                  <p class="mt-2 text-xs text-[#e76e1d] font-medium">Haz clic para abrir el explorador de archivos</p>
                 </div>
               </div>
 

@@ -9,6 +9,8 @@ export const ROUTES = {
   comparator: "/comparator",
   publish: "/publish",
   editCar: "/edit-car",
+  profile: "/profile",
+  changePassword: "/change-password",
 } as const;
 
 export function navigateTo(route: string): void {
