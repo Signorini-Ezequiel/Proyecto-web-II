@@ -97,17 +97,23 @@ export function renderHomePage(container: HTMLElement): void {
                   <div id="filters-content" class="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
                     <div>
                       <label class="block text-xs uppercase tracking-widest text-slate-600 mb-2">Marca</label>
-                      <select id="filter-make" class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:border-[#e76e1d]">
-                        <option value="">Todas las marcas</option>
-                        ${makes.map(make => `<option value="${make}">${make}</option>`).join('')}
-                      </select>
+                      <div class="relative">
+                        <input type="text" id="filter-make-search" placeholder="Buscar marca..." class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:border-[#e76e1d]">
+                        <input type="hidden" id="filter-make">
+                        <div id="filter-make-dropdown" class="hidden absolute z-10 top-full left-0 right-0 mt-1 bg-white border border-slate-200 rounded-lg shadow-lg max-h-48 overflow-y-auto">
+                          <!-- Se rellena dinámicamente -->
+                        </div>
+                      </div>
                     </div>
                     <div>
                       <label class="block text-xs uppercase tracking-widest text-slate-600 mb-2">Ubicación</label>
-                      <select id="filter-location" class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:border-[#e76e1d]">
-                        <option value="">Todas las ubicaciones</option>
-                        ${locations.map(loc => `<option value="${loc}">${loc}</option>`).join('')}
-                      </select>
+                      <div class="relative">
+                        <input type="text" id="filter-location-search" placeholder="Buscar ubicación..." class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:border-[#e76e1d]">
+                        <input type="hidden" id="filter-location">
+                        <div id="filter-location-dropdown" class="hidden absolute z-10 top-full left-0 right-0 mt-1 bg-white border border-slate-200 rounded-lg shadow-lg max-h-48 overflow-y-auto">
+                          <!-- Se rellena dinámicamente -->
+                        </div>
+                      </div>
                     </div>
                     <div>
                       <label class="block text-xs uppercase tracking-widest text-slate-600 mb-2">Combustible</label>
@@ -125,10 +131,13 @@ export function renderHomePage(container: HTMLElement): void {
                     </div>
                     <div>
                       <label class="block text-xs uppercase tracking-widest text-slate-600 mb-2">Año mínimo</label>
-                      <select id="filter-year" class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:border-[#e76e1d]">
-                        <option value="">Cualquier año</option>
-                        ${years.map(year => `<option value="${year}">${year}</option>`).join('')}
-                      </select>
+                      <div class="relative">
+                        <input type="text" id="filter-year-search" placeholder="Buscar año..." class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:border-[#e76e1d]">
+                        <input type="hidden" id="filter-year">
+                        <div id="filter-year-dropdown" class="hidden absolute z-10 top-full left-0 right-0 mt-1 bg-white border border-slate-200 rounded-lg shadow-lg max-h-48 overflow-y-auto">
+                          <!-- Se rellena dinámicamente -->
+                        </div>
+                      </div>
                     </div>
                   </div>
 
@@ -299,11 +308,11 @@ export function renderHomePage(container: HTMLElement): void {
   // Función para aplicar filtros
   function applyFilters() {
     const searchQuery = (document.getElementById('search-query') as HTMLInputElement)?.value || '';
-    const make = (document.getElementById('filter-make') as HTMLSelectElement)?.value || '';
-    const location = (document.getElementById('filter-location') as HTMLSelectElement)?.value || '';
+    const make = (document.getElementById('filter-make') as HTMLInputElement)?.value || '';
+    const location = (document.getElementById('filter-location') as HTMLInputElement)?.value || '';
     const fuel = (document.getElementById('filter-fuel') as HTMLSelectElement)?.value || '';
     const transmission = (document.getElementById('filter-transmission') as HTMLSelectElement)?.value || '';
-    const minYear = (document.getElementById('filter-year') as HTMLSelectElement)?.value ? parseInt((document.getElementById('filter-year') as HTMLSelectElement).value) : 0;
+    const minYear = (document.getElementById('filter-year') as HTMLInputElement)?.value ? parseInt((document.getElementById('filter-year') as HTMLInputElement).value) : 0;
     const minPrice = parseInt((document.getElementById('filter-min-price') as HTMLInputElement)?.value || '0');
     const maxPrice = parseInt((document.getElementById('filter-max-price') as HTMLInputElement)?.value || '999999');
 
@@ -352,17 +361,69 @@ export function renderHomePage(container: HTMLElement): void {
   // Limpiar filtros
   document.getElementById('clear-filters')?.addEventListener('click', () => {
     (document.getElementById('search-query') as HTMLInputElement).value = '';
-    (document.getElementById('filter-make') as HTMLSelectElement).value = '';
-    (document.getElementById('filter-location') as HTMLSelectElement).value = '';
+    (document.getElementById('filter-make-search') as HTMLInputElement).value = '';
+    (document.getElementById('filter-make') as HTMLInputElement).value = '';
+    (document.getElementById('filter-location-search') as HTMLInputElement).value = '';
+    (document.getElementById('filter-location') as HTMLInputElement).value = '';
     (document.getElementById('filter-fuel') as HTMLSelectElement).value = '';
     (document.getElementById('filter-transmission') as HTMLSelectElement).value = '';
-    (document.getElementById('filter-year') as HTMLSelectElement).value = '';
+    (document.getElementById('filter-year-search') as HTMLInputElement).value = '';
+    (document.getElementById('filter-year') as HTMLInputElement).value = '';
     (document.getElementById('filter-min-price') as HTMLInputElement).value = minPrice.toString();
     (document.getElementById('filter-max-price') as HTMLInputElement).value = maxPrice.toString();
     (document.getElementById('min-price-display') as HTMLElement).textContent = `$${minPrice.toLocaleString()}`;
     (document.getElementById('max-price-display') as HTMLElement).textContent = `$${maxPrice.toLocaleString()}`;
     applyFilters();
   });
+
+  // Funciones para dropdowns con búsqueda
+  function renderDropdown(searchId: string, dropdownId: string, hiddenId: string, options: string[]) {
+    const searchInput = document.getElementById(searchId) as HTMLInputElement;
+    const dropdown = document.getElementById(dropdownId) as HTMLElement;
+    const hiddenInput = document.getElementById(hiddenId) as HTMLInputElement;
+
+    function updateDropdown(filter = "") {
+      const filtered = options.filter(option => option.toLowerCase().includes(filter.toLowerCase()));
+      dropdown.innerHTML = filtered.length > 0 
+        ? filtered.map(option => `<div class="dropdown-option cursor-pointer px-4 py-2 text-sm hover:bg-slate-100" data-value="${option}">${option}</div>`).join('')
+        : '<div class="px-4 py-2 text-sm text-slate-500">No se encontraron resultados</div>';
+    }
+
+    searchInput.addEventListener('focus', () => {
+      dropdown.classList.remove('hidden');
+      updateDropdown(searchInput.value);
+    });
+
+    searchInput.addEventListener('input', () => {
+      updateDropdown(searchInput.value);
+    });
+
+    dropdown.addEventListener('click', (e) => {
+      const target = e.target as HTMLElement;
+      if (target.classList.contains('dropdown-option')) {
+        const value = target.getAttribute('data-value');
+        searchInput.value = value || '';
+        hiddenInput.value = value || '';
+        dropdown.classList.add('hidden');
+        applyFilters();
+      }
+    });
+
+    document.addEventListener('click', (e) => {
+      if (!searchInput.contains(e.target as Node) && !dropdown.contains(e.target as Node)) {
+        dropdown.classList.add('hidden');
+        if (searchInput.value && !options.includes(searchInput.value)) {
+          searchInput.value = '';
+          hiddenInput.value = '';
+        }
+      }
+    });
+  }
+
+  // Inicializar dropdowns
+  renderDropdown('filter-make-search', 'filter-make-dropdown', 'filter-make', makes);
+  renderDropdown('filter-location-search', 'filter-location-dropdown', 'filter-location', locations);
+  renderDropdown('filter-year-search', 'filter-year-dropdown', 'filter-year', years.map(y => y.toString()));
 
   // Toggle de filtros
   let filtersExpanded = true;

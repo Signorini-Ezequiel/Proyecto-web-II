@@ -220,9 +220,9 @@ export function NavBarListeners() {
     navigateTo ? navigateTo(ROUTES.landing) : window.location.href = ROUTES.landing;
   });
   document.querySelector("#nav-login")?.addEventListener("click", () => {
-    window.open(ROUTES.login, "_blank");
+    navigateTo(ROUTES.login);
   });
   document.querySelector("#nav-register")?.addEventListener("click", () => {
-    window.open(ROUTES.register, "_blank");
+    navigateTo(ROUTES.register);
   });
 }

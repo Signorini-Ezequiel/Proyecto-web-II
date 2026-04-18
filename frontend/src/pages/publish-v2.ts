@@ -78,7 +78,7 @@ export function renderPublishPage(container: HTMLElement, isEditMode = false): v
     return;
   }
 
-  let uploadedPhotos: File[] = [];
+  let uploadedPhotos: string[] = []; // Cambiar a string[] para base64
   const errors: Record<string, string> = {};
 
   const urlParams = new URLSearchParams(window.location.search);
@@ -480,19 +480,26 @@ export function renderPublishPage(container: HTMLElement, isEditMode = false): v
   });
 
   function handleFileSelection(files: File[]): void {
-    const imageFiles = files.filter((file) => file.type.startsWith("image/"));
-    uploadedPhotos = [...uploadedPhotos, ...imageFiles].slice(0, 10);
-    photoCount.textContent = uploadedPhotos.length.toString();
-    updatePhotosPreview();
+    const imageFiles = files.filter((file) => file.type.startsWith("image/")).slice(0, 10 - uploadedPhotos.length);
+    
+    imageFiles.forEach((file) => {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const base64 = e.target?.result as string;
+        uploadedPhotos.push(base64);
+        photoCount.textContent = uploadedPhotos.length.toString();
+        updatePhotosPreview();
+      };
+      reader.readAsDataURL(file);
+    });
   }
 
   function updatePhotosPreview(): void {
     photosPreview.innerHTML = uploadedPhotos
-      .map((file, index) => {
-        const url = URL.createObjectURL(file);
+      .map((base64, index) => {
         return `
           <div class="group relative aspect-square overflow-hidden rounded-lg bg-slate-100">
-            <img src="${url}" alt="Preview ${index + 1}" class="h-full w-full object-cover">
+            <img src="${base64}" alt="Preview ${index + 1}" class="h-full w-full object-cover">
             <button type="button" class="remove-photo absolute inset-0 flex items-center justify-center bg-black/0 opacity-0 transition-opacity transition-colors group-hover:bg-black/50 group-hover:opacity-100" data-index="${index}">
               <span class="text-2xl font-bold text-white">×</span>
             </button>
@@ -598,10 +605,7 @@ export function renderPublishPage(container: HTMLElement, isEditMode = false): v
       color: (document.getElementById("color") as HTMLInputElement).value.trim(),
       location: (document.getElementById("location") as HTMLInputElement).value.trim(),
       description: (document.getElementById("description") as HTMLTextAreaElement).value.trim(),
-      images:
-        uploadedPhotos.length > 0
-          ? uploadedPhotos.map(() => "/images/auto1-1.jpg")
-          : existingCar?.images || ["/images/auto1-1.jpg"],
+      images: uploadedPhotos.length > 0 ? uploadedPhotos : existingCar?.images || [],
       sellerId: user.id,
       specs: {
         engine: (document.getElementById("engine") as HTMLInputElement).value.trim(),
@@ -662,7 +666,9 @@ export function renderPublishPage(container: HTMLElement, isEditMode = false): v
       (document.getElementById("features") as HTMLTextAreaElement).value = specs.features.join(", ");
 
       if (existingCar!.images.length > 0) {
+        uploadedPhotos = [...existingCar!.images];
         photoCount.textContent = existingCar!.images.length.toString();
+        updatePhotosPreview();
       }
     }, 100);
   }

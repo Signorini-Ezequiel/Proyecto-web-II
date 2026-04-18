@@ -561,24 +561,24 @@ export function renderLandingPage(container: HTMLElement): void {
 
             if (!route) return;
             closeMobileMenu();
-            window.open(route, "_blank");
+            navigateTo(route);
         });
     });
 
     document.querySelector("#go-login")?.addEventListener("click", () => {
-        window.open("/login", "_blank");
+        navigateTo(ROUTES.login);
     });
 
     document.querySelector("#go-register")?.addEventListener("click", () => {
-        window.open("/register", "_blank");
+        navigateTo(ROUTES.register);
     });
 
     document.querySelector("#hero-login")?.addEventListener("click", () => {
-        window.open("/login", "_blank");
+        navigateTo(ROUTES.login);
     });
 
     document.querySelector("#hero-register")?.addEventListener("click", () => {
-        window.open("/register", "_blank");
+        navigateTo(ROUTES.register);
     });
 
     document.querySelector("#nav-about")?.addEventListener("click", (e) => {
@@ -606,19 +606,19 @@ export function renderLandingPage(container: HTMLElement): void {
         });
     } else {
         document.querySelector("#go-login")?.addEventListener("click", () => {
-            window.open("/login", "_blank");
+            navigateTo(ROUTES.login);
         });
 
         document.querySelector("#go-register")?.addEventListener("click", () => {
-            window.open("/register", "_blank");
+            navigateTo(ROUTES.register);
         });
 
         document.querySelector("#hero-login")?.addEventListener("click", () => {
-            window.open("/login", "_blank");
+            navigateTo(ROUTES.login);
         });
 
         document.querySelector("#hero-register")?.addEventListener("click", () => {
-            window.open("/register", "_blank");
+            navigateTo(ROUTES.register);
         });
     }
 }

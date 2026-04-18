@@ -116,11 +116,11 @@ export function renderAboutPage(container: HTMLElement): void {
 
   if (!isLoggedIn) {
     document.querySelector("#go-login")?.addEventListener("click", () => {
-      window.open("/login", "_blank");
+      navigateTo(ROUTES.login);
     });
 
     document.querySelector("#go-register")?.addEventListener("click", () => {
-      window.open("/register", "_blank");
+      navigateTo(ROUTES.register);
     });
   }
 }
