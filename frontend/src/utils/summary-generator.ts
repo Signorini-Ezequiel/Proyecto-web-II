@@ -49,3 +49,29 @@ export function generateDetailOpinion(car: Car): string {
 
   return `La IA la ve como una opción ${priceTier}: combina ${mileageState}, ${equipmentView} y una ficha técnica que encaja bien para quien prioriza ${car.transmission.toLowerCase()} y ${car.fuel.toLowerCase()}.`;
 }
+
+export function generateImageAnalysisOpinion(car: Car): string {
+  const imageCount = car.images?.length || 0;
+  const presentationLevel =
+    imageCount >= 8 ? "excelente" : imageCount >= 5 ? "muy buena" : imageCount >= 3 ? "aceptable" : "limitada";
+  
+  const yearCondition =
+    car.year >= 2020 ? "moderno y bien cuidado" : car.year >= 2015 ? "en buenas condiciones" : "con signos de uso";
+  
+  const mileageVisualEstimate =
+    car.mileage <= 30000 ? "impecable visualmente" : car.mileage <= 80000 ? "presenta buen estado general" : "muestra detalles típicos del uso";
+
+  const colorAppeal =
+    car.color.toLowerCase().includes("blanco") || car.color.toLowerCase().includes("plata")
+      ? "un color versátil que facilita la venta y mantenimiento"
+      : car.color.toLowerCase().includes("negro")
+      ? "un color elegante y atemporal"
+      : "un color diferenciador que refleja personalidad";
+
+  return `Análisis visual: El vehículo presenta una ${presentationLevel} documentación fotográfica con ${imageCount} imágenes. Visualmente se aprecia ${yearCondition}, ${mileageVisualEstimate}. El ${car.make} ${car.model} luce en ${colorAppeal}, lo que suma atractivo al conjunto general de la presentación.`;
+}
+
+export interface DetailOpinions {
+  characteristics: string;
+  imageAnalysis: string;
+}

@@ -9,7 +9,7 @@ import { addToComparison, isInComparison } from "../services/comparison";
 import { getSessionUser, getUserById } from "../services/auth";
 import { Icons } from "../utils/icons";
 import { showToast } from "../utils/toast";
-import { generateDetailOpinion } from "../utils/summary-generator";
+import { generateDetailOpinion, generateImageAnalysisOpinion } from "../utils/summary-generator";
 import { addPublicQuestion, answerPublicQuestion, getQuestionsByCarId } from "../services/car-questions";
 
 // Almacenamos el ID del auto en sessionStorage
@@ -84,7 +84,8 @@ export function renderCarDetailPage(container: HTMLElement): void {
 
   const user = getSessionUser();
   const isSeller = user?.role === "seller";
-  const aiOpinion = generateDetailOpinion(car);
+  const aiCharacteristicsOpinion = generateDetailOpinion(car);
+  const aiImageOpinion = generateImageAnalysisOpinion(car);
   const publicQuestions = isPublished ? getQuestionsByCarId(car.id) : [];
 
   container.innerHTML = `
@@ -152,7 +153,18 @@ export function renderCarDetailPage(container: HTMLElement): void {
 
             <div class="ai-opinion-card rounded-3xl border border-[#e76e1d]/20 bg-[linear-gradient(135deg,rgba(255,244,235,0.96),rgba(255,250,245,0.96))] p-6">
               <p class="text-xs font-semibold uppercase tracking-[0.28em] text-[#c9540a]">Opinion de la IA</p>
-              <p class="mt-3 leading-7 text-slate-700">${aiOpinion}</p>
+              
+              <div class="mt-4 space-y-4">
+                <div>
+                  <h4 class="font-semibold text-slate-900 text-sm mb-2">Análisis de características</h4>
+                  <p class="leading-7 text-slate-700">${aiCharacteristicsOpinion}</p>
+                </div>
+                
+                <div class="border-t border-[#e76e1d]/15 pt-4">
+                  <h4 class="font-semibold text-slate-900 text-sm mb-2">Análisis visual de imágenes</h4>
+                  <p class="leading-7 text-slate-700">${aiImageOpinion}</p>
+                </div>
+              </div>
             </div>
 
             <div class="flex gap-4 flex-wrap">
