@@ -25,7 +25,9 @@ export class CarsRepository {
   }
 
   findAll(filters: FilterCarsDto = {}): Car[] {
-    return [...this.cars.values()].filter((car) => this.matchesFilters(car, filters));
+    return [...this.cars.values()].filter((car) =>
+      this.matchesFilters(car, filters),
+    );
   }
 
   findById(id: string): Car | undefined {
@@ -64,12 +66,16 @@ export class CarsRepository {
 
   private matchesFilters(car: Car, filters: FilterCarsDto): boolean {
     if (filters.make && car.make !== filters.make) return false;
-    if (filters.minPrice !== undefined && car.price < filters.minPrice) return false;
-    if (filters.maxPrice !== undefined && car.price > filters.maxPrice) return false;
+    if (filters.minPrice !== undefined && car.price < filters.minPrice)
+      return false;
+    if (filters.maxPrice !== undefined && car.price > filters.maxPrice)
+      return false;
     if (filters.fuel && car.fuel !== filters.fuel) return false;
-    if (filters.transmission && car.transmission !== filters.transmission) return false;
+    if (filters.transmission && car.transmission !== filters.transmission)
+      return false;
     if (filters.location && car.location !== filters.location) return false;
-    if (filters.minYear !== undefined && car.year < filters.minYear) return false;
+    if (filters.minYear !== undefined && car.year < filters.minYear)
+      return false;
 
     if (filters.searchQuery) {
       const query = filters.searchQuery.toLowerCase();
@@ -94,7 +100,11 @@ export class CarsRepository {
         color: 'Blanco',
         location: 'Cordoba',
         description: 'Excelente estado, unico dueno, mantenimiento al dia.',
-        images: ['/images/auto1-1.jpg', '/images/auto1-2.jpg', '/images/auto1-3.jpg'],
+        images: [
+          '/images/auto1-1.jpg',
+          '/images/auto1-2.jpg',
+          '/images/auto1-3.jpg',
+        ],
         specs: {
           ...defaultSpecs,
           engine: '1.8L 4 cilindros',

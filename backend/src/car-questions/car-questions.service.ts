@@ -6,7 +6,9 @@ import { CreateCarQuestionDto } from './dto/create-car-question.dto';
 
 @Injectable()
 export class CarQuestionsService {
-  constructor(private readonly carQuestionsRepository: CarQuestionsRepository) {}
+  constructor(
+    private readonly carQuestionsRepository: CarQuestionsRepository,
+  ) {}
 
   findByCarId(carId: string): PublicCarQuestion[] {
     return this.carQuestionsRepository.findByCarId(carId);

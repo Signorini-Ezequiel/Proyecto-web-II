@@ -18,7 +18,10 @@ export class FavoritesRepository {
     return this.findByUserId(userId);
   }
 
-  toggle(userId: number, carId: string): { selected: boolean; favorites: string[] } {
+  toggle(
+    userId: number,
+    carId: string,
+  ): { selected: boolean; favorites: string[] } {
     const favorites = this.getOrCreate(userId);
 
     if (favorites.has(carId)) {

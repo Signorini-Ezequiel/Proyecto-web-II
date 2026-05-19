@@ -1,4 +1,8 @@
-import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { AnswerCarQuestionDto } from './dto/answer-car-question.dto';
 import { CreateCarQuestionDto } from './dto/create-car-question.dto';
 import { PublicCarQuestion } from './car-question.entity';
@@ -11,7 +15,9 @@ export class CarQuestionsRepository {
     return [...this.questions.values()]
       .filter((question) => question.carId === carId)
       .sort((a, b) => {
-        return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+        return (
+          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+        );
       });
   }
 
@@ -37,7 +43,9 @@ export class CarQuestionsRepository {
     }
 
     if (question.sellerId !== dto.sellerId) {
-      throw new ForbiddenException('Solo el vendedor de la publicacion puede responder.');
+      throw new ForbiddenException(
+        'Solo el vendedor de la publicacion puede responder.',
+      );
     }
 
     const answeredQuestion: PublicCarQuestion = {

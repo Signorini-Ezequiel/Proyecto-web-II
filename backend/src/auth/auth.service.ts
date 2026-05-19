@@ -2,10 +2,11 @@ import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
 import { CreateUserDto } from '../users/dto/create-user.dto';
-import { PublicUser } from '../users/entities/user.entity';
+import { toPublicUser } from '../users/entities/user.entity';
+import type { PublicUser } from '../users/entities/user.entity';
 import { UsersService } from '../users/users.service';
 import { LoginDto } from './dto/login.dto';
-import { JwtPayload } from './types/jwt-payload';
+import type { JwtPayload } from './types/jwt-payload';
 
 export interface AuthResult {
   ok: true;
@@ -32,21 +33,16 @@ export class AuthService {
       throw new UnauthorizedException('Email o contrasena incorrectos.');
     }
 
-    const passwordMatches = await bcrypt.compare(dto.password, user.passwordHash);
+    const passwordMatches = await bcrypt.compare(
+      dto.password,
+      user.passwordHash,
+    );
 
     if (!passwordMatches) {
       throw new UnauthorizedException('Email o contrasena incorrectos.');
     }
 
-    return this.buildAuthResult({
-      id: user.id,
-      name: user.name,
-      email: user.email,
-      role: user.role,
-      avatarUrl: user.avatarUrl,
-      createdAt: user.createdAt,
-      updatedAt: user.updatedAt,
-    });
+    return this.buildAuthResult(toPublicUser(user));
   }
 
   private async buildAuthResult(user: PublicUser): Promise<AuthResult> {

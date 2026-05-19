@@ -14,6 +14,13 @@ export interface User {
 export type PublicUser = Omit<User, 'passwordHash'>;
 
 export function toPublicUser(user: User): PublicUser {
-  const { passwordHash: _passwordHash, ...publicUser } = user;
-  return publicUser;
+  return {
+    id: user.id,
+    name: user.name,
+    email: user.email,
+    role: user.role,
+    avatarUrl: user.avatarUrl,
+    createdAt: user.createdAt,
+    updatedAt: user.updatedAt,
+  };
 }

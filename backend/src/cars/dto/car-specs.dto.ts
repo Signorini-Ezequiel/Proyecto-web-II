@@ -34,7 +34,10 @@ export class CarSpecsDto {
   @IsString()
   weight: string;
 
-  @ApiProperty({ type: [String], example: ['Bluetooth', 'Camara de retroceso'] })
+  @ApiProperty({
+    type: [String],
+    example: ['Bluetooth', 'Camara de retroceso'],
+  })
   @IsArray()
   @IsString({ each: true })
   features: string[];

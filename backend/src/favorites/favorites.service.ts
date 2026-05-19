@@ -14,7 +14,10 @@ export class FavoritesService {
   }
 
   remove(userId: number, carId: string): { ok: true; favorites: string[] } {
-    return { ok: true, favorites: this.favoritesRepository.remove(userId, carId) };
+    return {
+      ok: true,
+      favorites: this.favoritesRepository.remove(userId, carId),
+    };
   }
 
   toggle(

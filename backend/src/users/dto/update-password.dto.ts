@@ -9,7 +9,9 @@ export class UpdatePasswordDto {
   @ApiProperty({ example: 'newpass123' })
   @IsString()
   @MinLength(6)
-  @Matches(/[A-Za-z]/, { message: 'newPassword must contain at least one letter' })
+  @Matches(/[A-Za-z]/, {
+    message: 'newPassword must contain at least one letter',
+  })
   @Matches(/\d/, { message: 'newPassword must contain at least one number' })
   newPassword: string;
 

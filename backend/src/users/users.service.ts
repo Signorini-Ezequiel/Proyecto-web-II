@@ -4,10 +4,12 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import * as bcrypt from 'bcrypt';
+import { BCRYPT_SALT_ROUNDS } from '../common/constants/auth.constants';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdatePasswordDto } from './dto/update-password.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
-import { PublicUser, toPublicUser, User } from './entities/user.entity';
+import { toPublicUser } from './entities/user.entity';
+import type { PublicUser, User } from './entities/user.entity';
 import { UsersRepository } from './users.repository';
 
 @Injectable()
@@ -31,7 +33,7 @@ export class UsersService {
   }
 
   async create(dto: CreateUserDto): Promise<PublicUser> {
-    const passwordHash = await bcrypt.hash(dto.password, 10);
+    const passwordHash = await bcrypt.hash(dto.password, BCRYPT_SALT_ROUNDS);
     return toPublicUser(this.usersRepository.create(dto, passwordHash));
   }
 
@@ -39,19 +41,27 @@ export class UsersService {
     return toPublicUser(this.usersRepository.update(id, dto));
   }
 
-  async updatePassword(id: number, dto: UpdatePasswordDto): Promise<PublicUser> {
+  async updatePassword(
+    id: number,
+    dto: UpdatePasswordDto,
+  ): Promise<PublicUser> {
     if (dto.newPassword !== dto.confirmPassword) {
-      throw new BadRequestException('La nueva contrasena y su confirmacion no coinciden.');
+      throw new BadRequestException(
+        'La nueva contrasena y su confirmacion no coinciden.',
+      );
     }
 
     const user = this.usersRepository.requireById(id);
-    const passwordMatches = await bcrypt.compare(dto.currentPassword, user.passwordHash);
+    const passwordMatches = await bcrypt.compare(
+      dto.currentPassword,
+      user.passwordHash,
+    );
 
     if (!passwordMatches) {
       throw new UnauthorizedException('La contrasena actual no coincide.');
     }
 
-    const passwordHash = await bcrypt.hash(dto.newPassword, 10);
+    const passwordHash = await bcrypt.hash(dto.newPassword, BCRYPT_SALT_ROUNDS);
     return toPublicUser(this.usersRepository.updatePassword(id, passwordHash));
   }
 }

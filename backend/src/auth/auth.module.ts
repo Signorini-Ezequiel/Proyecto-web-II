@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { JwtModule } from '@nestjs/jwt';
+import { JWT_EXPIRES_IN, JWT_SECRET } from '../common/constants/auth.constants';
 import { UsersModule } from '../users/users.module';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
@@ -10,8 +11,8 @@ import { JwtAuthGuard } from './guards/jwt-auth.guard';
     UsersModule,
     JwtModule.register({
       global: false,
-      secret: process.env.JWT_SECRET || 'autopoint-dev-secret',
-      signOptions: { expiresIn: '1d' },
+      secret: JWT_SECRET,
+      signOptions: { expiresIn: JWT_EXPIRES_IN },
     }),
   ],
   controllers: [AuthController],

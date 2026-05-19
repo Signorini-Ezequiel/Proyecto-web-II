@@ -31,7 +31,10 @@ export class CreateUserDto {
   @IsEnum(UserRole)
   role: UserRole;
 
-  @ApiPropertyOptional({ example: 'https://example.com/avatar.png', nullable: true })
+  @ApiPropertyOptional({
+    example: 'https://example.com/avatar.png',
+    nullable: true,
+  })
   @IsOptional()
   @IsUrl()
   avatarUrl?: string | null;

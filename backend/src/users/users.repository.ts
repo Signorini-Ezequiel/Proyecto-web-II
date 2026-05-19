@@ -1,9 +1,14 @@
-import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  ConflictException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import * as bcrypt from 'bcrypt';
+import { BCRYPT_SALT_ROUNDS } from '../common/constants/auth.constants';
 import { UserRole } from '../common/types/user-role';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
-import { User } from './entities/user.entity';
+import type { User } from './entities/user.entity';
 
 @Injectable()
 export class UsersRepository {
@@ -31,7 +36,9 @@ export class UsersRepository {
     const email = this.normalizeEmail(dto.email);
 
     if (this.findByEmail(email)) {
-      throw new ConflictException('Ya existe una cuenta registrada con ese email.');
+      throw new ConflictException(
+        'Ya existe una cuenta registrada con ese email.',
+      );
     }
 
     const now = new Date().toISOString();
@@ -96,7 +103,7 @@ export class UsersRepository {
         id: 1,
         name: 'Bruno Lopez',
         email: 'buyer@autopoint.com',
-        passwordHash: bcrypt.hashSync('1234', 10),
+        passwordHash: bcrypt.hashSync('1234', BCRYPT_SALT_ROUNDS),
         role: UserRole.Buyer,
         avatarUrl: null,
         createdAt: now,
@@ -106,7 +113,7 @@ export class UsersRepository {
         id: 2,
         name: 'Lucia Fernandez',
         email: 'seller@autopoint.com',
-        passwordHash: bcrypt.hashSync('1234', 10),
+        passwordHash: bcrypt.hashSync('1234', BCRYPT_SALT_ROUNDS),
         role: UserRole.Seller,
         avatarUrl: null,
         createdAt: now,

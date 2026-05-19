@@ -6,7 +6,9 @@ import { PublishedCarsRepository } from './published-cars.repository';
 
 @Injectable()
 export class PublishedCarsService {
-  constructor(private readonly publishedCarsRepository: PublishedCarsRepository) {}
+  constructor(
+    private readonly publishedCarsRepository: PublishedCarsRepository,
+  ) {}
 
   findAll(): PublishedCar[] {
     return this.publishedCarsRepository.findAll();

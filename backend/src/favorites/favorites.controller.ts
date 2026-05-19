@@ -1,4 +1,14 @@
-import { Body, Controller, Delete, Get, Param, ParseIntPipe, Post } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  HttpCode,
+  HttpStatus,
+  Param,
+  ParseIntPipe,
+  Post,
+} from '@nestjs/common';
 import { ApiOkResponse, ApiTags } from '@nestjs/swagger';
 import { FavoriteDto } from './dto/favorite.dto';
 import { FavoritesService } from './favorites.service';
@@ -15,6 +25,7 @@ export class FavoritesController {
   }
 
   @Post(':userId')
+  @HttpCode(HttpStatus.OK)
   @ApiOkResponse({ description: 'Agrega un favorito.' })
   add(
     @Param('userId', ParseIntPipe) userId: number,
@@ -24,6 +35,7 @@ export class FavoritesController {
   }
 
   @Post(':userId/toggle')
+  @HttpCode(HttpStatus.OK)
   @ApiOkResponse({ description: 'Alterna un favorito.' })
   toggle(
     @Param('userId', ParseIntPipe) userId: number,

@@ -1,7 +1,6 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
+import { MAX_COMPARISON_CARS } from '../common/constants/comparison.constants';
 import { ComparisonRepository } from './comparison.repository';
-
-const maxComparisonCars = 4;
 
 @Injectable()
 export class ComparisonService {
@@ -18,11 +17,14 @@ export class ComparisonService {
       return { ok: true, ids };
     }
 
-    if (ids.length >= maxComparisonCars) {
+    if (ids.length >= MAX_COMPARISON_CARS) {
       throw new BadRequestException('Solo se pueden comparar hasta 4 autos.');
     }
 
-    return { ok: true, ids: this.comparisonRepository.save(userId, [...ids, carId]) };
+    return {
+      ok: true,
+      ids: this.comparisonRepository.save(userId, [...ids, carId]),
+    };
   }
 
   remove(userId: number, carId: string): { ok: true; ids: string[] } {
@@ -32,7 +34,10 @@ export class ComparisonService {
     return { ok: true, ids: this.comparisonRepository.save(userId, ids) };
   }
 
-  toggle(userId: number, carId: string): { ok: true; selected: boolean; ids: string[] } {
+  toggle(
+    userId: number,
+    carId: string,
+  ): { ok: true; selected: boolean; ids: string[] } {
     const ids = this.comparisonRepository.getIds(userId);
 
     if (ids.includes(carId)) {
