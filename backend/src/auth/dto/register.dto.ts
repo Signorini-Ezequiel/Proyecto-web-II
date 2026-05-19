@@ -2,51 +2,39 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import {
   IsEmail,
   IsEnum,
-  IsNotEmpty,
   IsOptional,
   IsString,
-  IsUrl,
   Matches,
   MinLength,
 } from 'class-validator';
-import { UserRole } from '@prisma/client';
+import { UserRole } from '../../common/types/user-role';
 
 export class RegisterDto {
-  @ApiProperty({ example: 'Jane Seller' })
+  @ApiProperty({ example: 'Lucia Fernandez' })
   @IsString()
-  @IsNotEmpty()
   @MinLength(2)
-  name!: string;
+  name: string;
 
-  @ApiProperty({ example: 'jane@example.com' })
+  @ApiProperty({ example: 'seller@autopoint.com' })
   @IsEmail()
-  email!: string;
+  email: string;
 
-  @ApiProperty({
-    example: 'StrongPass123',
-    minLength: 8,
-    description:
-      'Must contain at least one uppercase letter, one lowercase letter and one number.',
-  })
+  @ApiProperty({ example: 'abc123' })
   @IsString()
-  @MinLength(8)
-  @Matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).+$/, {
-    message:
-      'password must contain at least one uppercase letter, one lowercase letter and one number',
-  })
-  password!: string;
+  @MinLength(6)
+  @Matches(/[A-Za-z]/, { message: 'password must contain at least one letter' })
+  @Matches(/\d/, { message: 'password must contain at least one number' })
+  password: string;
+
+  @ApiProperty({ enum: UserRole, example: UserRole.Seller })
+  @IsEnum(UserRole)
+  role: UserRole;
 
   @ApiPropertyOptional({
-    enum: UserRole,
-    example: UserRole.BUYER,
-    default: UserRole.BUYER,
+    example: 'https://example.com/avatar.png',
+    nullable: true,
   })
   @IsOptional()
-  @IsEnum(UserRole)
-  role?: UserRole;
-
-  @ApiPropertyOptional({ example: 'https://example.com/avatar.jpg' })
-  @IsOptional()
-  @IsUrl()
-  avatar?: string;
+  @IsString()
+  avatarUrl?: string | null;
 }

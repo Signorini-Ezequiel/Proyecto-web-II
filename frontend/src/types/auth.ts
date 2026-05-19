@@ -1,22 +1,47 @@
 export type UserRole = "buyer" | "seller";
+export type PrismaUserRole = "BUYER" | "SELLER" | "ADMIN";
 
-export type MockUser = {
+export interface PublicUser {
   id: number;
   name: string;
+  email: string;
+  role: UserRole;
+  avatarUrl: string | null;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface SessionUser extends PublicUser {
+  token?: string;
+}
+
+export interface LoginDto {
   email: string;
   password: string;
-  role: "buyer" | "seller";
-  avatarUrl: string | null;
-};
+}
 
-export type SessionUser = {
-  id: number;
+export interface RegisterDto extends LoginDto {
   name: string;
-  email: string;
-  role: "buyer" | "seller";
-  avatarUrl: string | null;
-  token?: string;
-};
+  role: UserRole;
+  avatarUrl?: string | null;
+}
+
+export interface UpdateUserDto {
+  name?: string;
+  avatarUrl?: string | null;
+}
+
+export interface UpdatePasswordDto {
+  currentPassword: string;
+  newPassword: string;
+  confirmPassword: string;
+}
+
+export interface AuthResponseDto {
+  ok: true;
+  user: PublicUser;
+  accessToken: string;
+}
 
 export type LoginResult =
   | { ok: true; user: SessionUser }

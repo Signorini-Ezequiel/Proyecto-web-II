@@ -16,13 +16,13 @@ import {
   ApiResponse,
   ApiTags,
 } from '@nestjs/swagger';
-import { CreateUserDto } from '../users/dto/create-user.dto';
 import type { PublicUser } from '../users/entities/user.entity';
 import { UsersService } from '../users/users.service';
 import { AuthService } from './auth.service';
 import type { AuthResult } from './auth.service';
 import { AuthResponseDto } from './dto/auth-response.dto';
 import { LoginDto } from './dto/login.dto';
+import { RegisterDto } from './dto/register.dto';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import type { AuthenticatedRequest } from './types/authenticated-request';
 
@@ -36,16 +36,24 @@ export class AuthController {
 
   @Post('register')
   @HttpCode(HttpStatus.CREATED)
-  @ApiOperation({ summary: 'Registra un nuevo usuario y devuelve credenciales.' })
-  @ApiCreatedResponse({ type: AuthResponseDto, description: 'Usuario registrado con éxito.' })
-  register(@Body() dto: CreateUserDto): Promise<AuthResult> {
+  @ApiOperation({
+    summary: 'Registra un nuevo usuario y devuelve credenciales.',
+  })
+  @ApiCreatedResponse({
+    type: AuthResponseDto,
+    description: 'Usuario registrado con éxito.',
+  })
+  register(@Body() dto: RegisterDto): Promise<AuthResult> {
     return this.authService.register(dto);
   }
 
   @Post('login')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Inicia sesión y devuelve tokens JWT.' })
-  @ApiOkResponse({ type: AuthResponseDto, description: 'Inicio de sesión exitoso.' })
+  @ApiOkResponse({
+    type: AuthResponseDto,
+    description: 'Inicio de sesión exitoso.',
+  })
   login(@Body() dto: LoginDto): Promise<AuthResult> {
     return this.authService.login(dto);
   }

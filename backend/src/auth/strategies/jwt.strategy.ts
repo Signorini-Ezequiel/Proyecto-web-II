@@ -3,7 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { PassportStrategy } from '@nestjs/passport';
 import { ExtractJwt, Strategy } from 'passport-jwt';
 import type { EnvironmentVariables } from '../../config/env.validation';
-import { PrismaService } from '../../prisma/prisma.service';
+import { UsersService } from '../../users/users.service';
 import type { AuthUser } from '../types/auth-user.type';
 import type { JwtPayload } from '../types/jwt-payload.type';
 
@@ -11,7 +11,7 @@ import type { JwtPayload } from '../types/jwt-payload.type';
 export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
   constructor(
     configService: ConfigService<EnvironmentVariables, true>,
-    private readonly prisma: PrismaService,
+    private readonly usersService: UsersService,
   ) {
     super({
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
@@ -20,24 +20,16 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
     });
   }
 
-  async validate(payload: JwtPayload): Promise<AuthUser> {
-    if (payload.tokenType !== 'access') {
-      throw new UnauthorizedException('Invalid token type');
-    }
-
-    const user = await this.prisma.user.findUnique({
-      where: { id: payload.sub },
-      select: {
-        id: true,
-        email: true,
-        role: true,
-      },
-    });
-
-    if (user === null) {
+  validate(payload: JwtPayload): AuthUser {
+    if (typeof payload.sub !== 'number') {
       throw new UnauthorizedException('Invalid token subject');
     }
 
-    return user;
+    const user = this.usersService.findById(payload.sub);
+    return {
+      id: user.id,
+      email: user.email,
+      role: user.role,
+    };
   }
 }

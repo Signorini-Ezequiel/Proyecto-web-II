@@ -91,10 +91,11 @@ export function renderLoginPage(container: HTMLElement): void {
   const form = document.querySelector<HTMLFormElement>("#login-form");
   const emailInput = document.querySelector<HTMLInputElement>("#email");
   const passwordInput = document.querySelector<HTMLInputElement>("#password");
+  const submitButton = document.querySelector<HTMLButtonElement>("#login-submit");
   const errorBox = document.querySelector<HTMLDivElement>("#login-error");
   const errorText = errorBox?.querySelector("p");
 
-  if (!form || !emailInput || !passwordInput || !errorBox || !errorText) {
+  if (!form || !emailInput || !passwordInput || !submitButton || !errorBox || !errorText) {
     return;
   }
 
@@ -118,10 +119,16 @@ export function renderLoginPage(container: HTMLElement): void {
     navigateTo(ROUTES.register);
   });
 
-  form.addEventListener("submit", (event) => {
+  form.addEventListener("submit", async (event) => {
     event.preventDefault();
 
-    const result = login(emailInput.value, passwordInput.value);
+    submitButton.disabled = true;
+    submitButton.textContent = "Iniciando sesion...";
+
+    const result = await login(emailInput.value, passwordInput.value);
+
+    submitButton.disabled = false;
+    submitButton.textContent = "Iniciar sesion";
 
     if (!result.ok) {
       errorText.textContent = result.message;

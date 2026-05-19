@@ -1,7 +1,7 @@
-import type { UserRole } from '@prisma/client';
+import { UserRole } from '../../common/types/user-role';
 
 export interface AuthUser {
-  id: string;
+  id: number;
   email: string;
   role: UserRole;
 }

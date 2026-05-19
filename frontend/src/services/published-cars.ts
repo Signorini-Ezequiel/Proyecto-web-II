@@ -1,14 +1,17 @@
 import { type Car, CARS } from "../data/cars";
+import type {
+  CreatePublishedCarDto,
+  PublishedCarDto,
+  Transmission,
+  UpdatePublishedCarDto,
+} from "../types/car";
+import { apiDelete, apiGet, apiPatch, apiPost } from "./api";
+import { normalizeUploadedImageUrl } from "./upload.service";
 
-const BACKEND_API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
+export type PublishedCar = PublishedCarDto;
 
-export interface PublishedCar extends Omit<Car, 'specs'> {
-  sellerId: number;
-  publishedAt: string;
-  specs?: Car['specs'];
-}
+const PUBLISHED_CARS_KEY = "published_cars";
 
-const PUBLISHED_CARS_KEY = 'published_cars';
 export const DEFAULT_CAR_SPECS: Car["specs"] = {
   engine: "No especificado",
   power: "No especificada",
@@ -35,6 +38,55 @@ export function normalizeCarSpecs(specs?: Partial<Car["specs"]>): Car["specs"] {
   };
 }
 
+function normalizeTransmission(value: string | undefined): string {
+  const normalized = value ?? "";
+  const transmissionMap: Record<Transmission, string> = {
+    MANUAL: "Manual",
+    AUTOMATIC: "AutomÃ¡tica",
+    SEMI_AUTOMATIC: "CVT",
+  };
+
+  return transmissionMap[normalized as Transmission] ?? normalized;
+}
+
+function normalizeFuel(value: string | undefined): string {
+  const normalized = value ?? "";
+  const fuelMap: Record<string, string> = {
+    GASOLINE: "Nafta",
+    DIESEL: "Diesel",
+    HYBRID: "HÃ­brido",
+    ELECTRIC: "ElÃ©ctrico",
+    CNG: "GNC",
+    LPG: "Otro",
+    OTHER: "Otro",
+  };
+
+  return fuelMap[normalized] ?? normalized;
+}
+
+function normalizePublishedCar(car: Partial<PublishedCar> & { id: string }): PublishedCar {
+  const specs = normalizeCarSpecs(car.specs);
+
+  return {
+    id: car.id,
+    make: car.make ?? "",
+    model: car.model ?? "",
+    year: Number(car.year ?? 0),
+    price: Number(car.price ?? 0),
+    mileage: Number(car.mileage ?? 0),
+    transmission: normalizeTransmission(car.transmission),
+    fuel: normalizeFuel(car.fuel),
+    color: car.color ?? "No especificado",
+    location: car.location ?? "",
+    description: car.description ?? "",
+    images: Array.isArray(car.images) ? car.images.map(normalizeUploadedImageUrl) : [],
+    sellerId: Number(car.sellerId ?? 0),
+    publishedAt: car.publishedAt ?? new Date().toISOString(),
+    updatedAt: car.updatedAt ?? car.publishedAt ?? new Date().toISOString(),
+    specs,
+  };
+}
+
 export function publishedCarToCar(published: PublishedCar): Car {
   return {
     id: published.id,
@@ -56,49 +108,49 @@ export function publishedCarToCar(published: PublishedCar): Car {
 export function getPublishedCars(): PublishedCar[] {
   try {
     const stored = localStorage.getItem(PUBLISHED_CARS_KEY);
-    return stored ? JSON.parse(stored) : [];
+    const parsed = stored ? (JSON.parse(stored) as Array<Partial<PublishedCar> & { id: string }>) : [];
+    return parsed.map(normalizePublishedCar);
   } catch (error) {
-    console.error('Error loading published cars:', error);
+    console.error("Error loading published cars:", error);
     return [];
   }
 }
 
-export async function savePublishedCar(car: Omit<PublishedCar, 'id' | 'publishedAt'>): Promise<PublishedCar> {
-  const response = await fetch(`${BACKEND_API_URL}/published-cars`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify(car),
-  });
+export async function fetchPublishedCars(): Promise<PublishedCar[]> {
+  const cars = await apiGet<Array<Partial<PublishedCar> & { id: string }>>("published-cars")
+    .then((items) => items.map(normalizePublishedCar))
+    .catch(() => getPublishedCars());
+  localStorage.setItem(PUBLISHED_CARS_KEY, JSON.stringify(cars));
+  return cars;
+}
 
-  if (!response.ok) {
-    throw new Error('Error al crear la publicación en el servidor.');
-  }
-
-  const newCar: PublishedCar = await response.json();
+export async function savePublishedCar(
+  car: CreatePublishedCarDto,
+): Promise<PublishedCar> {
+  const newCar = normalizePublishedCar(
+    await apiPost<Partial<PublishedCar> & { id: string }, CreatePublishedCarDto>("published-cars", car),
+  );
   const publishedCars = getPublishedCars();
   publishedCars.push(newCar);
   localStorage.setItem(PUBLISHED_CARS_KEY, JSON.stringify(publishedCars));
   return newCar;
 }
 
-export async function updatePublishedCar(carId: string, updates: Partial<PublishedCar>): Promise<boolean> {
-  const response = await fetch(`${BACKEND_API_URL}/published-cars/${encodeURIComponent(carId)}`, {
-    method: 'PATCH',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify(updates),
-  });
+export async function updatePublishedCar(
+  carId: string,
+  updates: UpdatePublishedCarDto,
+): Promise<boolean> {
+  const updatedCar = await apiPatch<Partial<PublishedCar> & { id: string }, UpdatePublishedCarDto>(
+    `published-cars/${encodeURIComponent(carId)}`,
+    updates,
+  )
+    .then(normalizePublishedCar)
+    .catch(() => null);
 
-  if (!response.ok) {
-    return false;
-  }
+  if (!updatedCar) return false;
 
-  const updatedCar: PublishedCar = await response.json();
   const publishedCars = getPublishedCars();
-  const index = publishedCars.findIndex(car => car.id === carId);
+  const index = publishedCars.findIndex((car) => car.id === carId);
 
   if (index !== -1) {
     publishedCars[index] = { ...publishedCars[index], ...updatedCar };
@@ -110,32 +162,29 @@ export async function updatePublishedCar(carId: string, updates: Partial<Publish
   return true;
 }
 
-export function deletePublishedCar(carId: string): boolean {
+export async function deletePublishedCar(carId: string): Promise<boolean> {
+  const deleted = await apiDelete<{ ok: true }>(`published-cars/${encodeURIComponent(carId)}`)
+    .then(() => true)
+    .catch(() => false);
+
+  if (!deleted) return false;
+
   const publishedCars = getPublishedCars();
-  const filtered = publishedCars.filter(car => car.id !== carId);
-
-  if (filtered.length === publishedCars.length) return false;
-
+  const filtered = publishedCars.filter((car) => car.id !== carId);
   localStorage.setItem(PUBLISHED_CARS_KEY, JSON.stringify(filtered));
   return true;
 }
 
 export function getPublishedCarById(carId: string): PublishedCar | null {
   const publishedCars = getPublishedCars();
-  return publishedCars.find(car => car.id === carId) || null;
+  return publishedCars.find((car) => car.id === carId) || null;
 }
 
 export function getPublishedCarsBySeller(sellerId: number): PublishedCar[] {
-  const publishedCars = getPublishedCars();
-  console.log("Published cars:", publishedCars, "filtering by sellerId:", sellerId);
-  return publishedCars.filter(car => car.sellerId === sellerId);
+  return getPublishedCars().filter((car) => car.sellerId === sellerId);
 }
 
 export function getAllCarsForDisplay(): Car[] {
-  const publishedCars = getPublishedCars();
-
-  // Convertir published cars al formato Car para compatibilidad
-  const convertedPublishedCars: Car[] = publishedCars.map(publishedCarToCar);
-
+  const convertedPublishedCars = getPublishedCars().map(publishedCarToCar);
   return [...CARS, ...convertedPublishedCars];
 }

@@ -1,5 +1,1 @@
-export interface User {
-  id: number
-  name: string
-  email: string
-}
+export type { PublicUser as User, UserRole } from "./auth";

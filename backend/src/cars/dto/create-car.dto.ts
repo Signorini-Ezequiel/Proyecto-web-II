@@ -5,6 +5,8 @@ import {
   IsInt,
   IsPositive,
   IsString,
+  ArrayMaxSize,
+  ArrayMinSize,
   Min,
   ValidateNested,
 } from 'class-validator';
@@ -55,6 +57,8 @@ export class CreateCarDto {
 
   @ApiProperty({ type: [String], example: ['/images/auto1-1.jpg'] })
   @IsArray()
+  @ArrayMinSize(1)
+  @ArrayMaxSize(10)
   @IsString({ each: true })
   images: string[];
 

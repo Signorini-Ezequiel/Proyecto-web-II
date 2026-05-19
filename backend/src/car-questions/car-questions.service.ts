@@ -18,7 +18,10 @@ export class CarQuestionsService {
     return this.carQuestionsRepository.create(dto);
   }
 
-  async answer(questionId: string, dto: AnswerCarQuestionDto): Promise<PublicCarQuestion> {
+  async answer(
+    questionId: string,
+    dto: AnswerCarQuestionDto,
+  ): Promise<PublicCarQuestion> {
     return this.carQuestionsRepository.answer(questionId, dto);
   }
 }

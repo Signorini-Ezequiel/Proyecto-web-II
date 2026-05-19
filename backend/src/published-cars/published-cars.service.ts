@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { UsersService } from '../users/users.service';
 import { CreatePublishedCarDto } from './dto/create-published-car.dto';
 import { UpdatePublishedCarDto } from './dto/update-published-car.dto';
 import { PublishedCar } from './published-car.entity';
@@ -8,6 +9,7 @@ import { PublishedCarsRepository } from './published-cars.repository';
 export class PublishedCarsService {
   constructor(
     private readonly publishedCarsRepository: PublishedCarsRepository,
+    private readonly usersService: UsersService,
   ) {}
 
   async findAll(): Promise<PublishedCar[]> {
@@ -23,10 +25,15 @@ export class PublishedCarsService {
   }
 
   async create(dto: CreatePublishedCarDto): Promise<PublishedCar> {
+    this.usersService.findById(dto.sellerId);
     return this.publishedCarsRepository.create(dto);
   }
 
   async update(id: string, dto: UpdatePublishedCarDto): Promise<PublishedCar> {
+    if (dto.sellerId !== undefined) {
+      this.usersService.findById(dto.sellerId);
+    }
+
     return this.publishedCarsRepository.update(id, dto);
   }
 

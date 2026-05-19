@@ -1,30 +1,6 @@
-export interface CarSpecs {
-  engine: string;
-  power: string;
-  torque: string;
-  acceleration: string;
-  topSpeed: string;
-  consumption: string;
-  dimensions: string;
-  weight: string;
-  features: string[];
-}
+import type { Car, FilterCarsDto } from "../types/car";
 
-export interface Car {
-  id: string;
-  make: string;
-  model: string;
-  year: number;
-  price: number;
-  mileage: number;
-  transmission: string;
-  fuel: string;
-  color: string;
-  location: string;
-  description: string;
-  images: string[];
-  specs: CarSpecs;
-}
+export type { Car, CarSpecs } from "../types/car";
 
 export const CARS: Car[] = [
   {
@@ -205,16 +181,7 @@ export function getCarById(id: string): Car | undefined {
   return CARS.find(car => car.id === id);
 }
 
-export function filterCars(filters: {
-  make?: string;
-  minPrice?: number;
-  maxPrice?: number;
-  fuel?: string;
-  transmission?: string;
-  location?: string;
-  minYear?: number;
-  searchQuery?: string;
-}, cars: Car[] = CARS): Car[] {
+export function filterCars(filters: FilterCarsDto, cars: Car[] = CARS): Car[] {
   return cars.filter(car => {
     if (filters.make && car.make !== filters.make) return false;
     if (filters.minPrice && car.price < filters.minPrice) return false;

@@ -45,7 +45,10 @@ export class AllExceptionsFilter implements ExceptionFilter {
     statusCode: number,
   ): string | string[] {
     if (!(exception instanceof HttpException)) {
-      return 'Internal server error';
+      return (
+        (exception as Error)?.message ||
+        'Error inesperado al procesar la solicitud.'
+      );
     }
 
     const exceptionResponse = exception.getResponse();

@@ -1,31 +1,37 @@
-import type { LoginResult, RegisterResult, SessionUser, UserRole } from "../types/auth";
+import type {
+  AuthResponseDto,
+  LoginDto,
+  LoginResult,
+  RegisterDto,
+  RegisterResult,
+  SessionUser,
+  UpdatePasswordDto,
+  UpdateUserDto,
+  UserRole,
+} from "../types/auth";
+import { ApiError, apiGet, apiPatch, apiPost } from "./api";
 
 const SESSION_KEY = "auto_market_session";
-const BASE = "http://localhost:3000";
-
-type AuthResponse = {
-  ok: true;
-  user: {
-    id: number;
-    name: string;
-    email: string;
-    role: UserRole;
-    avatarUrl: string | null;
-  };
-  accessToken: string;
-};
-
-type UpdateProfileInput = {
-  name: string;
-  avatarUrl: string | null;
-};
 
 type UpdateResult =
   | { ok: true; user: SessionUser }
   | { ok: false; message: string };
 
+type AuthState = {
+  isAuthenticated: boolean;
+  user: SessionUser | null;
+  token: string | null;
+};
+
+type AuthListener = (state: AuthState) => void;
+
+const authListeners = new Set<AuthListener>();
+
 function saveSessionUser(user: SessionUser): void {
-  localStorage.setItem(SESSION_KEY, JSON.stringify(user));
+  const serializedUser = JSON.stringify(user);
+  localStorage.setItem(SESSION_KEY, serializedUser);
+  sessionStorage.setItem(SESSION_KEY, serializedUser);
+  notifyAuthListeners();
 }
 
 function getPasswordValidationMessage(password: string): string | null {
@@ -44,7 +50,7 @@ function getPasswordValidationMessage(password: string): string | null {
   return null;
 }
 
-function buildSessionUser(user: AuthResponse["user"], token: string): SessionUser {
+function buildSessionUser(user: AuthResponseDto["user"], token: string): SessionUser {
   return {
     id: user.id,
     name: user.name,
@@ -55,31 +61,83 @@ function buildSessionUser(user: AuthResponse["user"], token: string): SessionUse
   };
 }
 
-export async function login(email: string, password: string): Promise<LoginResult> {
-  try {
-    const response = await fetch(`${BASE}/auth/login`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, password }),
-    });
+function readStoredSession(): SessionUser | null {
+  const rawUser =
+    localStorage.getItem(SESSION_KEY) ?? sessionStorage.getItem(SESSION_KEY);
 
-    if (!response.ok) {
-      const error = await response.json().catch(() => null);
-      return {
-        ok: false,
-        message: error?.message ?? "Email o contrasena incorrectos.",
-      };
+  if (!rawUser) {
+    return null;
+  }
+
+  try {
+    const parsed = JSON.parse(rawUser) as SessionUser;
+
+    if (!parsed.token || isTokenExpired(parsed.token)) {
+      clearStoredSession();
+      return null;
     }
 
-    const data = (await response.json()) as AuthResponse;
+    return {
+      ...parsed,
+      avatarUrl: parsed.avatarUrl ?? null,
+    };
+  } catch {
+    clearStoredSession();
+    return null;
+  }
+}
+
+function clearStoredSession(): void {
+  localStorage.removeItem(SESSION_KEY);
+  sessionStorage.removeItem(SESSION_KEY);
+}
+
+function getTokenPayload(token: string): { exp?: number } | null {
+  const [, payload] = token.split(".");
+
+  if (!payload) {
+    return null;
+  }
+
+  try {
+    const normalizedPayload = payload.replace(/-/g, "+").replace(/_/g, "/");
+    const decodedPayload = atob(normalizedPayload.padEnd(Math.ceil(normalizedPayload.length / 4) * 4, "="));
+    return JSON.parse(decodedPayload) as { exp?: number };
+  } catch {
+    return null;
+  }
+}
+
+function isTokenExpired(token: string): boolean {
+  const payload = getTokenPayload(token);
+
+  if (!payload?.exp) {
+    return true;
+  }
+
+  return payload.exp * 1000 <= Date.now();
+}
+
+function notifyAuthListeners(): void {
+  const state = getAuthState();
+  authListeners.forEach((listener) => listener(state));
+}
+
+export async function login(email: string, password: string): Promise<LoginResult> {
+  try {
+    const body: LoginDto = { email: email.trim(), password };
+    const data = await apiPost<AuthResponseDto, LoginDto>("auth/login", body);
     const sessionUser = buildSessionUser(data.user, data.accessToken);
     saveSessionUser(sessionUser);
 
     return { ok: true, user: sessionUser };
-  } catch {
+  } catch (error) {
     return {
       ok: false,
-      message: "No se pudo conectar con el servidor. Intenta de nuevo.",
+      message:
+        error instanceof ApiError
+          ? error.message
+          : "No se pudo conectar con el servidor. Intenta de nuevo.",
     };
   }
 }
@@ -100,47 +158,52 @@ export async function register(
   }
 
   try {
-    const response = await fetch(`${BASE}/auth/register`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        name,
-        email,
-        password,
-        role,
-        avatar: avatarUrl || undefined,
-      }),
-    });
-
-    if (!response.ok) {
-      const error = await response.json().catch(() => null);
-      return {
-        ok: false,
-        message: error?.message ?? "No se pudo crear la cuenta.",
-      };
-    }
-
-    const data = (await response.json()) as AuthResponse;
+    const body: RegisterDto = {
+      name: name.trim(),
+      email: email.trim().toLowerCase(),
+      password,
+      role,
+      avatarUrl: avatarUrl || undefined,
+    };
+    const data = await apiPost<AuthResponseDto, RegisterDto>("auth/register", body);
     const sessionUser = buildSessionUser(data.user, data.accessToken);
     saveSessionUser(sessionUser);
 
     return { ok: true, user: sessionUser };
-  } catch {
+  } catch (error) {
     return {
       ok: false,
-      message: "No se pudo conectar con el servidor. Intenta de nuevo.",
+      message:
+        error instanceof ApiError
+          ? error.message
+          : "No se pudo conectar con el servidor. Intenta de nuevo.",
     };
   }
 }
 
 export async function updateProfile(
   userId: number,
-  input: UpdateProfileInput,
+  input: UpdateUserDto,
 ): Promise<UpdateResult> {
-  return {
-    ok: false,
-    message: "Esta operacion no esta disponible en esta version.",
-  };
+  try {
+    const user = await apiPatch<AuthResponseDto["user"], UpdateUserDto>(`users/${userId}`, {
+      name: input.name?.trim(),
+      avatarUrl: input.avatarUrl,
+    });
+    const currentToken = getSessionToken();
+    const sessionUser = buildSessionUser(user, currentToken ?? "");
+    saveSessionUser(sessionUser);
+
+    return { ok: true, user: sessionUser };
+  } catch (error) {
+    return {
+      ok: false,
+      message:
+        error instanceof ApiError
+          ? error.message
+          : "No se pudo actualizar el perfil.",
+    };
+  }
 }
 
 export async function updatePassword(
@@ -149,33 +212,41 @@ export async function updatePassword(
   newPassword: string,
   confirmPassword: string,
 ): Promise<UpdateResult> {
-  return {
-    ok: false,
-    message: "Esta operacion no esta disponible en esta version.",
-  };
+  try {
+    const body: UpdatePasswordDto = {
+      currentPassword,
+      newPassword,
+      confirmPassword,
+    };
+    const user = await apiPatch<AuthResponseDto["user"], UpdatePasswordDto>(`users/${userId}/password`, body);
+    const currentToken = getSessionToken();
+    const sessionUser = buildSessionUser(user, currentToken ?? "");
+    saveSessionUser(sessionUser);
+
+    return { ok: true, user: sessionUser };
+  } catch (error) {
+    return {
+      ok: false,
+      message:
+        error instanceof ApiError
+          ? error.message
+          : "No se pudo actualizar la contrasena.",
+    };
+  }
 }
 
 export function logout(): void {
-  localStorage.removeItem(SESSION_KEY);
+  clearStoredSession();
+  notifyAuthListeners();
 }
 
 export function getSessionUser(): SessionUser | null {
-  const rawUser = localStorage.getItem(SESSION_KEY);
+  return readStoredSession();
+}
 
-  if (!rawUser) {
-    return null;
-  }
-
-  try {
-    const parsed = JSON.parse(rawUser) as SessionUser;
-    return {
-      ...parsed,
-      avatarUrl: parsed.avatarUrl ?? null,
-    };
-  } catch {
-    localStorage.removeItem(SESSION_KEY);
-    return null;
-  }
+export function getUserById(id: number | string): SessionUser | null {
+  const currentUser = getSessionUser();
+  return currentUser?.id === Number(id) ? currentUser : null;
 }
 
 export function getSessionToken(): string | null {
@@ -184,6 +255,45 @@ export function getSessionToken(): string | null {
 
 export function isAuthenticated(): boolean {
   return getSessionUser() !== null;
+}
+
+export function getAuthState(): AuthState {
+  const user = getSessionUser();
+
+  return {
+    isAuthenticated: user !== null,
+    user,
+    token: user?.token ?? null,
+  };
+}
+
+export function subscribeAuth(listener: AuthListener): () => void {
+  authListeners.add(listener);
+  listener(getAuthState());
+
+  return () => {
+    authListeners.delete(listener);
+  };
+}
+
+export const useAuth = getAuthState;
+
+export async function restoreSession(): Promise<SessionUser | null> {
+  const currentUser = getSessionUser();
+
+  if (!currentUser) {
+    return null;
+  }
+
+  try {
+    const user = await apiGet<AuthResponseDto["user"]>("auth/profile");
+    const sessionUser = buildSessionUser(user, currentUser.token ?? "");
+    saveSessionUser(sessionUser);
+    return sessionUser;
+  } catch {
+    logout();
+    return null;
+  }
 }
 
 export function getMockAccounts(): Array<{

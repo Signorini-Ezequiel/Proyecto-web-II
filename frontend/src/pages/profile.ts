@@ -7,6 +7,7 @@ import {
   getSessionUser,
   updateProfile,
 } from "../services/auth";
+import { validateImageFiles } from "../services/upload.service";
 import { navigateTo, ROUTES } from "../utils/router";
 
 export function renderProfilePage(container: HTMLElement): void {
@@ -105,6 +106,7 @@ export function renderProfilePage(container: HTMLElement): void {
   const profileAvatarInput = document.querySelector<HTMLInputElement>("#profile-avatar");
   const profileAvatarPreview = document.querySelector<HTMLDivElement>("#profile-avatar-preview");
   const removeAvatarButton = document.querySelector<HTMLButtonElement>("#remove-avatar");
+  const submitButton = document.querySelector<HTMLButtonElement>("#profile-submit");
   const profileErrorBox = document.querySelector<HTMLDivElement>("#profile-error");
   const profileErrorText = profileErrorBox?.querySelector("p");
   const changePasswordBtn = document.querySelector<HTMLButtonElement>("#change-password-btn");
@@ -115,6 +117,7 @@ export function renderProfilePage(container: HTMLElement): void {
     !profileAvatarInput ||
     !profileAvatarPreview ||
     !removeAvatarButton ||
+    !submitButton ||
     !profileErrorBox ||
     !profileErrorText ||
     !changePasswordBtn
@@ -144,8 +147,9 @@ export function renderProfilePage(container: HTMLElement): void {
       return;
     }
 
-    if (!file.type.startsWith("image/")) {
-      profileErrorText.textContent = "Selecciona un archivo de imagen válido.";
+    const { errors } = validateImageFiles([file]);
+    if (errors.length > 0) {
+      profileErrorText.textContent = errors[0];
       profileErrorBox.classList.remove("hidden");
       profileAvatarInput.value = "";
       return;
@@ -166,13 +170,19 @@ export function renderProfilePage(container: HTMLElement): void {
     renderAvatarPreview();
   });
 
-  profileForm.addEventListener("submit", (event) => {
+  profileForm.addEventListener("submit", async (event) => {
     event.preventDefault();
 
-    const result = updateProfile(user.id, {
+    submitButton.disabled = true;
+    submitButton.textContent = "Guardando...";
+
+    const result = await updateProfile(user.id, {
       name: profileNameInput.value,
       avatarUrl,
     });
+
+    submitButton.disabled = false;
+    submitButton.textContent = "Guardar perfil";
 
     if (!result.ok) {
       profileErrorText.textContent = result.message;

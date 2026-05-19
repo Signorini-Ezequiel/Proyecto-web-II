@@ -1,4 +1,6 @@
 // Servicio para manejar favoritos
+import type { FavoriteDto } from "../types/comparison";
+
 const FAVORITES_KEY = "autopoint_favorites";
 
 export function getFavorites(): string[] {
@@ -25,6 +27,8 @@ export function toggleFavorite(carId: string): boolean {
 }
 
 export function addFavorite(carId: string): void {
+  const _payload: FavoriteDto = { carId };
+  void _payload;
   const favorites = getFavorites();
   if (!favorites.includes(carId)) {
     favorites.push(carId);

@@ -15,7 +15,8 @@ export function setupSwagger(app: INestApplication): void {
         type: 'http',
         scheme: 'bearer',
         bearerFormat: 'JWT',
-        description: 'Ingrese un token JWT válido en el encabezado Authorization.',
+        description:
+          'Ingrese un token JWT válido en el encabezado Authorization.',
       },
       'JWT-auth',
     )

@@ -1,0 +1,18 @@
+generator client {
+  provider = " prisma-client\
+ output = \./tmp-client\
+}
+
+datasource db {
+ provider = \postgresql\
+ url = env(\DATABASE_URL\)
+}
+
+enum UserRole {
+ BUYER
+}
+
+model Test {
+ id String @id @default(uuid())
+ name String
+}

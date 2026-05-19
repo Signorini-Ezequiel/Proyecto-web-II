@@ -5,6 +5,7 @@ import { Input } from "../components/Input";
 import { Select } from "../components/Select";
 import { ThemeToggle } from "../components/ThemeToggle";
 import { getPasswordRequirements, register } from "../services/auth";
+import { validateImageFiles } from "../services/upload.service";
 import type { UserRole } from "../types/auth";
 import { Icons } from "../utils/icons";
 import { navigateTo, ROUTES } from "../utils/router";
@@ -118,6 +119,7 @@ export function renderRegisterPage(container: HTMLElement): void {
   const roleInput = document.querySelector<HTMLSelectElement>("#role");
   const avatarInput = document.querySelector<HTMLInputElement>("#avatar");
   const avatarPreview = document.querySelector<HTMLDivElement>("#avatar-preview");
+  const submitButton = document.querySelector<HTMLButtonElement>("#register-submit");
   const errorBox = document.querySelector<HTMLDivElement>("#register-error");
   const errorText = errorBox?.querySelector("p");
   let avatarUrl: string | null = null;
@@ -130,6 +132,7 @@ export function renderRegisterPage(container: HTMLElement): void {
     !roleInput ||
     !avatarInput ||
     !avatarPreview ||
+    !submitButton ||
     !errorBox ||
     !errorText
   ) {
@@ -156,8 +159,9 @@ export function renderRegisterPage(container: HTMLElement): void {
       return;
     }
 
-    if (!file.type.startsWith("image/")) {
-      errorText.textContent = "Selecciona un archivo de imagen valido.";
+    const { errors } = validateImageFiles([file]);
+    if (errors.length > 0) {
+      errorText.textContent = errors[0];
       errorBox.classList.remove("hidden");
       avatarInput.value = "";
       avatarUrl = null;
@@ -184,16 +188,22 @@ export function renderRegisterPage(container: HTMLElement): void {
     navigateTo(ROUTES.login);
   });
 
-  form.addEventListener("submit", (event) => {
+  form.addEventListener("submit", async (event) => {
     event.preventDefault();
 
-    const result = register(
+    submitButton.disabled = true;
+    submitButton.textContent = "Creando cuenta...";
+
+    const result = await register(
       nameInput.value,
       emailInput.value,
       passwordInput.value,
       roleInput.value as UserRole,
       avatarUrl
     );
+
+    submitButton.disabled = false;
+    submitButton.textContent = "Crear cuenta";
 
     if (!result.ok) {
       errorText.textContent = result.message;

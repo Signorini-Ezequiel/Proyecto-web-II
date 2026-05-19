@@ -14,6 +14,9 @@ export const ROUTES = {
 } as const;
 
 export function navigateTo(route: string): void {
+  const currentRoute = `${window.location.pathname}${window.location.search}`;
+  if (currentRoute === route) return;
+
   window.history.pushState({}, "", route);
   window.dispatchEvent(new Event("popstate"));
 }

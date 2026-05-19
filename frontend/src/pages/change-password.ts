@@ -100,6 +100,7 @@ export function renderChangePasswordPage(container: HTMLElement): void {
   const passwordErrorBox = document.querySelector<HTMLDivElement>("#password-error");
   const passwordErrorText = passwordErrorBox?.querySelector("p");
   const cancelBtn = document.querySelector<HTMLButtonElement>("#cancel-btn");
+  const submitButton = document.querySelector<HTMLButtonElement>("#password-submit");
 
   if (
     !passwordForm ||
@@ -109,7 +110,8 @@ export function renderChangePasswordPage(container: HTMLElement): void {
     !passwordChecks ||
     !passwordErrorBox ||
     !passwordErrorText ||
-    !cancelBtn
+    !cancelBtn ||
+    !submitButton
   ) {
     return;
   }
@@ -160,12 +162,29 @@ export function renderChangePasswordPage(container: HTMLElement): void {
       return;
     }
 
-    try {
-      await updatePassword(user.id, currentPassword, newPassword, confirmPassword);
+    submitButton.disabled = true;
+    submitButton.textContent = "Actualizando...";
+
+    const result = await updatePassword(user.id, currentPassword, newPassword, confirmPassword);
+
+    submitButton.disabled = false;
+    submitButton.textContent = "Actualizar contrasena";
+
+    if (result.ok) {
       navigateTo(ROUTES.profile);
-    } catch (error) {
+      return;
+    }
+
+    if (!result.ok) {
+      passwordErrorText.textContent = result.message;
+      passwordErrorBox.classList.remove("hidden");
+      return;
+    }
+    /*
+    if (false) {
       passwordErrorText.textContent = error instanceof Error ? error.message : "Error al actualizar la contraseña.";
       passwordErrorBox.classList.remove("hidden");
     }
+    */
   });
 }

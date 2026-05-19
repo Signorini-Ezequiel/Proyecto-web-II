@@ -2,8 +2,12 @@ import { Button } from "../components/Button";
 import { Card } from "../components/Card";
 import { NavBar, NavBarListeners } from "../components/NavBar";
 import { navigateTo, ROUTES } from "../utils/router";
-import { getCarById } from "../data/cars";
-import { getPublishedCarById } from "../services/published-cars";
+import { getCarById, type Car } from "../data/cars";
+import {
+  getPublishedCarById,
+  publishedCarToCar,
+  type PublishedCar,
+} from "../services/published-cars";
 import { addFavorite, isFavorite, toggleFavorite } from "../services/favorites";
 import { addToComparison, isInComparison } from "../services/comparison";
 import { getSessionUser, getUserById } from "../services/auth";
@@ -28,8 +32,8 @@ export async function renderCarDetailPage(container: HTMLElement): Promise<void>
     return;
   }
 
-  let car: any;
-  let publishedCar: any = null;
+  let car: Car;
+  let publishedCar: PublishedCar | null = null;
   let isOwner = false;
 
   if (isPublished) {
@@ -45,34 +49,10 @@ export async function renderCarDetailPage(container: HTMLElement): Promise<void>
     const user = getSessionUser();
     isOwner = !!user && user.id === publishedCar.sellerId;
 
-    car = {
-      id: publishedCar.id,
-      make: publishedCar.make,
-      model: publishedCar.model,
-      year: publishedCar.year,
-      price: publishedCar.price,
-      mileage: publishedCar.mileage,
-      transmission: publishedCar.transmission,
-      fuel: publishedCar.fuel,
-      color: publishedCar.color,
-      location: publishedCar.location,
-      description: publishedCar.description,
-      images: publishedCar.images,
-      specs: {
-        engine: publishedCar.specs?.engine || "",
-        power: publishedCar.specs?.power || "",
-        torque: publishedCar.specs?.torque || "",
-        acceleration: publishedCar.specs?.acceleration || "",
-        topSpeed: publishedCar.specs?.topSpeed || "",
-        consumption: publishedCar.specs?.consumption || "",
-        dimensions: publishedCar.specs?.dimensions || "",
-        weight: publishedCar.specs?.weight || "",
-        features: publishedCar.specs?.features || [],
-      },
-    };
+    car = publishedCarToCar(publishedCar);
   } else {
-    car = getCarById(carId);
-    if (!car) {
+    const baseCar = getCarById(carId);
+    if (!baseCar) {
       container.innerHTML = `
         <main class="min-h-screen app-bg text-slate-900">
           <p>Auto no encontrado</p>
@@ -80,6 +60,7 @@ export async function renderCarDetailPage(container: HTMLElement): Promise<void>
       `;
       return;
     }
+    car = baseCar;
   }
 
   const user = getSessionUser();
@@ -87,6 +68,7 @@ export async function renderCarDetailPage(container: HTMLElement): Promise<void>
   const aiCharacteristicsOpinion = generateDetailOpinion(car);
   const aiImageOpinion = generateImageAnalysisOpinion(car);
   const publicQuestions = isPublished ? await getQuestionsByCarId(car.id) : [];
+  const comparisonSelected = await isInComparison(car.id);
 
   container.innerHTML = `
     <main class="min-h-screen app-bg text-slate-900 pt-20">
@@ -175,7 +157,7 @@ export async function renderCarDetailPage(container: HTMLElement): Promise<void>
                 text: isFavorite(car.id) ? `${Icons.heart(4, true)} Guardado` : `${Icons.heart(4, false)} Guardar`, 
                 variant: "secondary" 
               })}
-              ${!isSeller ? Button({ id: "add-to-comparator", text: isInComparison(car.id) ? "En comparador" : "Comparar", variant: "ghost" }) : ''}
+              ${!isSeller ? Button({ id: "add-to-comparator", text: comparisonSelected ? "En comparador" : "Comparar", variant: "ghost" }) : ''}
             </div>
           </div>
         </div>

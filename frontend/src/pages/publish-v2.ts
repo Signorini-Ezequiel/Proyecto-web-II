@@ -10,6 +10,11 @@ import {
   updatePublishedCar,
 } from "../services/published-cars";
 import type { PublishedCar } from "../services/published-cars";
+import {
+  MAX_UPLOAD_IMAGES,
+  uploadImages,
+  validateImageFiles,
+} from "../services/upload.service";
 import { showToast } from "../utils/toast";
 
 const CURRENT_YEAR = new Date().getFullYear();
@@ -83,6 +88,7 @@ export function renderPublishPage(container: HTMLElement, isEditMode = false): v
     file?: File;
     url?: string;
     status: 'pending' | 'uploading' | 'uploaded' | 'error';
+    progress: number;
     error?: string;
   }
 
@@ -279,7 +285,7 @@ export function renderPublishPage(container: HTMLElement, isEditMode = false): v
                 <div>
                   <p class="mb-3 text-5xl">📸</p>
                   <p class="mb-1 text-lg font-semibold text-white">Arrastra fotos aquí o haz clic para seleccionar</p>
-                  <p class="text-sm text-white">Formatos: JPG, PNG, WebP. Máximo 10 fotos.</p>
+                  <p class="text-sm text-white">Formatos: JPG, PNG, WebP. Máximo ${MAX_UPLOAD_IMAGES} fotos.</p>
                   <p class="mt-2 text-xs text-[#e76e1d] font-medium">Haz clic para abrir el explorador de archivos</p>
                 </div>
               </div>
@@ -489,16 +495,18 @@ export function renderPublishPage(container: HTMLElement, isEditMode = false): v
   });
 
   function handleFileSelection(files: File[]): void {
-    const imageFiles = files.filter((file) => file.type.startsWith("image/")).slice(0, 10 - photoItems.length);
-    const startIndex = photoItems.length;
+    const { validFiles: allowedFiles, errors: imageErrors } = validateImageFiles(files, photoItems.length);
+    imageErrors.forEach((message) => showToast(message, 'error'));
 
-    imageFiles.forEach((file) => {
-      const photoItem: PhotoItem = {
+    const startIndex = photoItems.length;
+    allowedFiles.forEach((file) => {
+      photoItems.push({
         preview: '',
         file,
+        url: undefined,
         status: 'pending',
-      };
-      photoItems.push(photoItem);
+        progress: 0,
+      });
     });
 
     photoItems.slice(startIndex).forEach((item) => {
@@ -514,7 +522,7 @@ export function renderPublishPage(container: HTMLElement, isEditMode = false): v
     updatePhotoCount();
     updatePhotosPreview();
 
-    if (imageFiles.length > 0) {
+    if (allowedFiles.length > 0) {
       void uploadSelectedPhotos(photoItems.slice(startIndex));
     }
   }
@@ -522,47 +530,53 @@ export function renderPublishPage(container: HTMLElement, isEditMode = false): v
   async function uploadSelectedPhotos(items: PhotoItem[]): Promise<void> {
     if (items.length === 0) return;
 
+    const files = items.map((item) => item.file).filter((file): file is File => Boolean(file));
+    if (files.length !== items.length) {
+      items.forEach((item) => {
+        if (!item.file) {
+          item.status = 'error';
+          item.error = 'Archivo invalido';
+        }
+      });
+      updatePhotosPreview();
+      return;
+    }
+
     items.forEach((item) => {
       item.status = 'uploading';
+      item.progress = 0;
     });
     updatePhotosPreview();
 
-    const formData = new FormData();
-    items.forEach((item) => {
-      if (item.file) {
-        formData.append('images', item.file);
-      }
-    });
-
     try {
-      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/api/uploads/images`, {
-        method: 'POST',
-        body: formData,
+      const result = await uploadImages(files, (progress) => {
+        items.forEach((item) => {
+          item.progress = progress;
+        });
+        updatePhotosPreview();
       });
 
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(errorText || 'Error al subir las imágenes');
+      if (!result.ok) {
+        throw new Error(result.message);
       }
 
-      const result = await response.json();
-      const uploadedUrls: string[] = result.images || [];
-
-      uploadedUrls.forEach((url, index) => {
-        items[index].url = url;
-        items[index].preview = url;
-        items[index].status = 'uploaded';
+      items.forEach((item, index) => {
+        const uploadedUrl = result.images[index];
+        item.url = uploadedUrl || item.preview;
+        item.preview = item.url;
+        item.status = 'uploaded';
+        item.error = undefined;
+        item.progress = 100;
       });
     } catch (error) {
+      console.error('Error al subir la imagen:', error);
       items.forEach((item) => {
         item.status = 'error';
         item.error = (error as Error)?.message || 'Error en la carga';
       });
-      console.error('Error al subir las imágenes:', error);
-      showToast('Ocurrió un error al subir las imágenes. Intenta nuevamente.', 'error');
-    } finally {
-      updatePhotosPreview();
     }
+
+    updatePhotosPreview();
   }
 
   function updatePhotoCount(): void {
@@ -576,8 +590,14 @@ export function renderPublishPage(container: HTMLElement, isEditMode = false): v
   function updatePhotosPreview(): void {
     photosPreview.innerHTML = photoItems
       .map((item, index) => {
-        const statusOverlay = item.status === 'uploading'
-          ? '<div class="absolute inset-0 flex items-center justify-center bg-black/50 text-white text-sm font-semibold">Subiendo...</div>'
+        const progressOverlay = item.status === 'uploading'
+          ? `<div class="absolute inset-0 flex flex-col items-center justify-center bg-black/50 text-white text-sm font-semibold">
+              <span>Subiendo...</span>
+              <div class="mt-2 h-2 w-3/4 overflow-hidden rounded-full bg-white/20">
+                <div class="h-full bg-[#e76e1d] transition-all" style="width: ${item.progress}%"></div>
+              </div>
+              <span class="mt-2 text-xs">${item.progress}%</span>
+            </div>`
           : item.status === 'error'
           ? `<div class="absolute inset-0 flex items-center justify-center bg-red-600/75 text-white text-sm font-semibold">Error</div>`
           : '';
@@ -585,7 +605,7 @@ export function renderPublishPage(container: HTMLElement, isEditMode = false): v
         return `
           <div class="group relative aspect-square overflow-hidden rounded-lg bg-slate-100">
             <img src="${item.preview}" alt="Preview ${index + 1}" class="h-full w-full object-cover">
-            ${statusOverlay}
+            ${progressOverlay}
             <button type="button" class="remove-photo absolute inset-0 flex items-center justify-center bg-black/0 opacity-0 transition-opacity transition-colors group-hover:bg-black/50 group-hover:opacity-100" data-index="${index}">
               <span class="text-2xl font-bold text-white">×</span>
             </button>
@@ -667,7 +687,8 @@ export function renderPublishPage(container: HTMLElement, isEditMode = false): v
       showError("fuel", "Selecciona un combustible");
     }
 
-    if (!isEditMode && uploadedPhotos.length === 0) {
+    const imageUrls = getUploadedPhotoUrls();
+    if (imageUrls.length === 0 && (!isEditMode || (existingCar?.images || []).length === 0)) {
       showToast("Debes cargar al menos una foto del vehículo", "error");
       return;
     }
@@ -678,7 +699,6 @@ export function renderPublishPage(container: HTMLElement, isEditMode = false): v
     }
 
     const features = parseFeatures((document.getElementById("features") as HTMLTextAreaElement).value);
-    const imageUrls = getUploadedPhotoUrls();
 
     if (photoItems.some((item) => item.status === 'uploading')) {
       showToast("Espera a que las imágenes terminen de subir antes de enviar.", "error");
@@ -763,7 +783,7 @@ export function renderPublishPage(container: HTMLElement, isEditMode = false): v
 
       if (existingCar!.images.length > 0) {
         photoItems.push(
-          ...existingCar!.images.map((image) => ({ preview: image, url: image, status: 'uploaded' as const })),
+          ...existingCar!.images.map((image) => ({ preview: image, url: image, status: 'uploaded' as const, progress: 100 })),
         );
         photoCount.textContent = photoItems.length.toString();
         updatePhotosPreview();

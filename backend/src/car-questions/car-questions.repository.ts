@@ -1,4 +1,8 @@
-import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { AnswerCarQuestionDto } from './dto/answer-car-question.dto';
 import { CreateCarQuestionDto } from './dto/create-car-question.dto';
@@ -44,17 +48,26 @@ export class CarQuestionsRepository {
       question: created.question,
       answer: created.answer ?? undefined,
       createdAt: created.createdAt.toISOString(),
-      answeredAt: created.updatedAt ? created.updatedAt.toISOString() : undefined,
+      answeredAt: created.updatedAt
+        ? created.updatedAt.toISOString()
+        : undefined,
     };
   }
 
-  async answer(questionId: string, dto: AnswerCarQuestionDto): Promise<PublicCarQuestion> {
-    const existing = await this.prisma.question.findUnique({ where: { id: questionId } });
+  async answer(
+    questionId: string,
+    dto: AnswerCarQuestionDto,
+  ): Promise<PublicCarQuestion> {
+    const existing = await this.prisma.question.findUnique({
+      where: { id: questionId },
+    });
 
     if (!existing) throw new NotFoundException('Pregunta no encontrada.');
 
     if (existing.sellerId !== dto.sellerId) {
-      throw new ForbiddenException('Solo el vendedor de la publicacion puede responder.');
+      throw new ForbiddenException(
+        'Solo el vendedor de la publicacion puede responder.',
+      );
     }
 
     const updated = await this.prisma.question.update({
@@ -70,7 +83,9 @@ export class CarQuestionsRepository {
       question: updated.question,
       answer: updated.answer ?? undefined,
       createdAt: updated.createdAt.toISOString(),
-      answeredAt: updated.updatedAt ? updated.updatedAt.toISOString() : undefined,
+      answeredAt: updated.updatedAt
+        ? updated.updatedAt.toISOString()
+        : undefined,
     };
   }
 }

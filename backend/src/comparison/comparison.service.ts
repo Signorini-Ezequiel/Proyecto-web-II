@@ -1,4 +1,9 @@
-import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { MAX_COMPARISON_CARS } from '../common/constants/comparison.constants';
 import { ComparisonRepository } from './comparison.repository';
 

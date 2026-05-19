@@ -1,4 +1,4 @@
-import "./style.css";
+import "./style.css" with { type: "css" };
 import { renderHomePage } from "./pages/home";
 import { renderLandingPage } from "./pages/landing";
 import { renderLoginPage } from "./pages/login";
@@ -10,17 +10,85 @@ import { renderComparatorPage } from "./pages/comparator-page-v2";
 import { renderPublishPage } from "./pages/publish-v2";
 import { renderProfilePage } from "./pages/profile";
 import { renderChangePasswordPage } from "./pages/change-password";
-import { isAuthenticated } from "./services/auth";
+import { getSessionUser, isAuthenticated, logout, restoreSession } from "./services/auth";
 import { ROUTES, navigateTo } from "./utils/router";
-import { logout } from "./services/auth";
 import { bindThemeToggleButtons, initializeTheme } from "./utils/theme";
 
 const app = document.querySelector<HTMLDivElement>("#app")!;
 
+type UserRole = "buyer" | "seller";
+
+declare global {
+  interface Window {
+    navigateTo: typeof navigateTo;
+    logout: typeof logout;
+  }
+}
+
+type RouteAccess = {
+  auth?: boolean;
+  guestOnly?: boolean;
+  roles?: UserRole[];
+};
+
+const ROUTE_ACCESS: Record<string, RouteAccess> = {
+  [ROUTES.landing]: {},
+  [ROUTES.login]: { guestOnly: true },
+  [ROUTES.register]: { guestOnly: true },
+  [ROUTES.home]: { auth: true },
+  [ROUTES.about]: {},
+  [ROUTES.carDetail]: {},
+  [ROUTES.favorites]: { auth: true, roles: ["buyer"] },
+  [ROUTES.comparator]: { auth: true, roles: ["buyer"] },
+  [ROUTES.publish]: { auth: true, roles: ["seller"] },
+  [ROUTES.editCar]: { auth: true, roles: ["seller"] },
+  [ROUTES.profile]: { auth: true },
+  [ROUTES.changePassword]: { auth: true },
+};
+
+let didValidateStoredSession = false;
+
 initializeTheme();
 
-function renderRoute(): void {
+async function validateStoredSessionOnce(): Promise<void> {
+  if (didValidateStoredSession) return;
+  didValidateStoredSession = true;
+
+  if (isAuthenticated()) {
+    await restoreSession();
+  }
+}
+
+function guardRoute(path: string): boolean {
+  const access = ROUTE_ACCESS[path] ?? {};
+  const user = getSessionUser();
+
+  if (access.guestOnly && user) {
+    navigateTo(ROUTES.home);
+    return false;
+  }
+
+  if (access.auth && !user) {
+    navigateTo(ROUTES.login);
+    return false;
+  }
+
+  if (access.roles && user && !access.roles.includes(user.role)) {
+    navigateTo(ROUTES.home);
+    return false;
+  }
+
+  return true;
+}
+
+async function renderRoute(): Promise<void> {
+  await validateStoredSessionOnce();
+
   const currentPath = window.location.pathname || "/";
+
+  if (!guardRoute(currentPath)) {
+    return;
+  }
 
   switch (currentPath) {
     case ROUTES.landing:
@@ -28,26 +96,14 @@ function renderRoute(): void {
       break;
 
     case ROUTES.login:
-      if (isAuthenticated()) {
-        navigateTo(ROUTES.home);
-        return;
-      }
       renderLoginPage(app);
       break;
 
     case ROUTES.register:
-      if (isAuthenticated()) {
-        navigateTo(ROUTES.home);
-        return;
-      }
       renderRegisterPage(app);
       break;
 
     case ROUTES.home:
-      if (!isAuthenticated()) {
-        navigateTo(ROUTES.login);
-        return;
-      }
       renderHomePage(app);
       break;
 
@@ -64,39 +120,23 @@ function renderRoute(): void {
       break;
 
     case ROUTES.comparator:
-      renderComparatorPage(app);
+      void renderComparatorPage(app);
       break;
 
     case ROUTES.publish:
-      if (!isAuthenticated()) {
-        navigateTo(ROUTES.login);
-        return;
-      }
       renderPublishPage(app);
       break;
 
     case ROUTES.profile:
-      if (!isAuthenticated()) {
-        navigateTo(ROUTES.login);
-        return;
-      }
       renderProfilePage(app);
       break;
 
     case ROUTES.changePassword:
-      if (!isAuthenticated()) {
-        navigateTo(ROUTES.login);
-        return;
-      }
       renderChangePasswordPage(app);
       break;
 
     case ROUTES.editCar:
-      if (!isAuthenticated()) {
-        navigateTo(ROUTES.login);
-        return;
-      }
-      renderPublishPage(app, true); // true indica modo edición
+      renderPublishPage(app, true);
       break;
 
     default:
@@ -106,11 +146,21 @@ function renderRoute(): void {
   bindThemeToggleButtons();
 }
 
-window.addEventListener("popstate", renderRoute);
-window.addEventListener("load", renderRoute);
+window.addEventListener("popstate", () => {
+  void renderRoute();
+});
 
-// Exponer navigateTo y logout en window para scripts inline (como en comparator)
-// @ts-ignore
+window.addEventListener("load", () => {
+  void renderRoute();
+});
+
+window.addEventListener("auth:unauthorized", () => {
+  const currentPath = window.location.pathname || "/";
+
+  if (ROUTE_ACCESS[currentPath]?.auth) {
+    navigateTo(ROUTES.login);
+  }
+});
+
 window.navigateTo = navigateTo;
-// @ts-ignore
 window.logout = logout;

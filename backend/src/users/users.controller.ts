@@ -1,31 +1,43 @@
 import {
   Body,
   Controller,
+  ForbiddenException,
   Get,
   Param,
   ParseIntPipe,
   Patch,
+  Req,
+  UseGuards,
 } from '@nestjs/common';
-import { ApiOkResponse, ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiOkResponse, ApiTags } from '@nestjs/swagger';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import type { AuthenticatedRequest } from '../auth/types/authenticated-request';
 import { UpdatePasswordDto } from './dto/update-password.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import type { PublicUser } from './entities/user.entity';
 import { UsersService } from './users.service';
 
 @ApiTags('users')
+@ApiBearerAuth('JWT-auth')
+@UseGuards(JwtAuthGuard)
 @Controller('users')
 export class UsersController {
   constructor(private readonly usersService: UsersService) {}
 
   @Get()
   @ApiOkResponse({ description: 'Lista usuarios sin datos sensibles.' })
-  findAll(): PublicUser[] {
+  findAll(@Req() request: AuthenticatedRequest): PublicUser[] {
+    this.ensureAdminLikeAccess(request);
     return this.usersService.findAll();
   }
 
   @Get(':id')
   @ApiOkResponse({ description: 'Obtiene un usuario por id.' })
-  findById(@Param('id', ParseIntPipe) id: number): PublicUser {
+  findById(
+    @Param('id', ParseIntPipe) id: number,
+    @Req() request: AuthenticatedRequest,
+  ): PublicUser {
+    this.ensureOwnProfile(id, request);
     return this.usersService.findById(id);
   }
 
@@ -34,7 +46,9 @@ export class UsersController {
   update(
     @Param('id', ParseIntPipe) id: number,
     @Body() dto: UpdateUserDto,
+    @Req() request: AuthenticatedRequest,
   ): PublicUser {
+    this.ensureOwnProfile(id, request);
     return this.usersService.update(id, dto);
   }
 
@@ -43,7 +57,20 @@ export class UsersController {
   updatePassword(
     @Param('id', ParseIntPipe) id: number,
     @Body() dto: UpdatePasswordDto,
+    @Req() request: AuthenticatedRequest,
   ): Promise<PublicUser> {
+    this.ensureOwnProfile(id, request);
     return this.usersService.updatePassword(id, dto);
+  }
+
+  private ensureOwnProfile(id: number, request: AuthenticatedRequest): void {
+    if (request.user.sub !== id) {
+      throw new ForbiddenException('No puedes modificar otro perfil.');
+    }
+  }
+
+  private ensureAdminLikeAccess(request: AuthenticatedRequest): void {
+    void request;
+    throw new ForbiddenException('No puedes listar usuarios.');
   }
 }

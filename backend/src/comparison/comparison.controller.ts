@@ -1,6 +1,7 @@
 import {
   Controller,
   Delete,
+  ForbiddenException,
   Get,
   HttpCode,
   HttpStatus,
@@ -9,10 +10,16 @@ import {
   Req,
   UseGuards,
 } from '@nestjs/common';
-import { ApiBearerAuth, ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
+import {
+  ApiBearerAuth,
+  ApiOkResponse,
+  ApiOperation,
+  ApiTags,
+} from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { ComparisonService } from './comparison.service';
 import type { AuthenticatedRequest } from '../auth/types/authenticated-request';
+import { UserRole } from '../common/types/user-role';
 
 @ApiTags('comparisons')
 @ApiBearerAuth('JWT-auth')
@@ -24,15 +31,23 @@ export class ComparisonController {
   @Get('me')
   @ApiOperation({ summary: 'Obtiene la comparacion del usuario autenticado.' })
   @ApiOkResponse({ description: 'Devuelve comparacion y autos asociados.' })
-  async getMyComparison(@Req() request: AuthenticatedRequest): Promise<{ id: string; carIds: string[] }> {
+  async getMyComparison(
+    @Req() request: AuthenticatedRequest,
+  ): Promise<{ id: string; carIds: string[] }> {
+    this.ensureBuyer(request);
     return this.comparisonService.getByUserId(request.user.sub.toString());
   }
 
   @Post()
   @HttpCode(HttpStatus.CREATED)
-  @ApiOperation({ summary: 'Crea una nueva comparacion para el usuario autenticado.' })
+  @ApiOperation({
+    summary: 'Crea una nueva comparacion para el usuario autenticado.',
+  })
   @ApiOkResponse({ description: 'Comparacion creada con exito.' })
-  async create(@Req() request: AuthenticatedRequest): Promise<{ id: string; carIds: string[] }> {
+  async create(
+    @Req() request: AuthenticatedRequest,
+  ): Promise<{ id: string; carIds: string[] }> {
+    this.ensureBuyer(request);
     return this.comparisonService.create(request.user.sub.toString());
   }
 
@@ -45,7 +60,12 @@ export class ComparisonController {
     @Param('id') id: string,
     @Param('carId') carId: string,
   ): Promise<{ id: string; carIds: string[] }> {
-    return this.comparisonService.addCar(id, request.user.sub.toString(), carId);
+    this.ensureBuyer(request);
+    return this.comparisonService.addCar(
+      id,
+      request.user.sub.toString(),
+      carId,
+    );
   }
 
   @Delete(':id/cars/:carId')
@@ -56,6 +76,19 @@ export class ComparisonController {
     @Param('id') id: string,
     @Param('carId') carId: string,
   ): Promise<{ id: string; carIds: string[] }> {
-    return this.comparisonService.removeCar(id, request.user.sub.toString(), carId);
+    this.ensureBuyer(request);
+    return this.comparisonService.removeCar(
+      id,
+      request.user.sub.toString(),
+      carId,
+    );
+  }
+
+  private ensureBuyer(request: AuthenticatedRequest): void {
+    if (request.user.role !== UserRole.Buyer) {
+      throw new ForbiddenException(
+        'Solo los compradores pueden gestionar comparaciones.',
+      );
+    }
   }
 }

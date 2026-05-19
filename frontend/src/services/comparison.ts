@@ -1,41 +1,19 @@
-import { getSessionToken, getSessionUser } from "./auth";
+import { apiDelete, apiGet, apiPost } from "./api";
+import type { ComparisonResponseDto } from "../types/comparison";
 
-const BASE = "http://localhost:3000";
 const MAX_COMPARISON_CARS = 4;
-
-type ComparisonResponse = {
-  id: string;
-  carIds: string[];
-};
 
 type ToggleResult = {
   selected: boolean;
-  reason?: "limit";
+  reason?: "duplicate" | "limit";
 };
 
-function getAuthHeaders(): HeadersInit | null {
-  const token = getSessionToken();
-  if (!token) return null;
-  return {
-    "Content-Type": "application/json",
-    Authorization: `Bearer ${token}`,
-  };
-}
-
-async function fetchComparison(): Promise<ComparisonResponse | null> {
-  const headers = getAuthHeaders();
-  if (!headers) return null;
-
-  const response = await fetch(`${BASE}/comparisons/me`, {
-    method: "GET",
-    headers,
-  });
-
-  if (!response.ok) {
+async function fetchComparison(): Promise<ComparisonResponseDto | null> {
+  try {
+    return await apiGet<ComparisonResponseDto>("comparisons/me");
+  } catch {
     return null;
   }
-
-  return response.json();
 }
 
 export async function getComparisonIds(): Promise<string[]> {
@@ -62,17 +40,9 @@ export async function addToComparison(carId: string): Promise<{ ok: boolean; rea
     return { ok: false, reason: "limit" };
   }
 
-  const headers = getAuthHeaders();
-  if (!headers) {
-    return { ok: false, reason: "limit" };
-  }
-
-  const response = await fetch(`${BASE}/comparisons/${comparison.id}/cars/${carId}`, {
-    method: "POST",
-    headers,
-  });
-
-  if (!response.ok) {
+  try {
+    await apiPost<ComparisonResponseDto>(`comparisons/${comparison.id}/cars/${carId}`);
+  } catch {
     return { ok: false, reason: "limit" };
   }
 
@@ -81,13 +51,9 @@ export async function addToComparison(carId: string): Promise<{ ok: boolean; rea
 
 export async function removeFromComparison(carId: string): Promise<void> {
   const comparison = await fetchComparison();
-  const headers = getAuthHeaders();
-  if (!comparison || !headers) return;
+  if (!comparison) return;
 
-  await fetch(`${BASE}/comparisons/${comparison.id}/cars/${carId}`, {
-    method: "DELETE",
-    headers,
-  });
+  await apiDelete<ComparisonResponseDto>(`comparisons/${comparison.id}/cars/${carId}`);
 }
 
 export async function toggleComparison(carId: string): Promise<ToggleResult> {
@@ -107,15 +73,11 @@ export async function toggleComparison(carId: string): Promise<ToggleResult> {
 
 export async function clearComparison(): Promise<void> {
   const comparison = await fetchComparison();
-  const headers = getAuthHeaders();
-  if (!comparison || !headers) return;
+  if (!comparison) return;
 
   await Promise.all(
     comparison.carIds.map((carId) =>
-      fetch(`${BASE}/comparisons/${comparison.id}/cars/${carId}`, {
-        method: "DELETE",
-        headers,
-      }),
+      apiDelete<ComparisonResponseDto>(`comparisons/${comparison.id}/cars/${carId}`),
     ),
   );
 }

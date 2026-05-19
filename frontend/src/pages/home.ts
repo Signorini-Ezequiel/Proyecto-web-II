@@ -1,7 +1,7 @@
 import { NavBar, NavBarListeners } from "../components/NavBar";
 import { getSessionUser, logout, getUserById } from "../services/auth";
 import { navigateTo, ROUTES } from "../utils/router";
-import { filterCars } from "../data/cars";
+import { filterCars, type Car } from "../data/cars";
 import { getAllCarsForDisplay, getPublishedCarById, getPublishedCarsBySeller } from "../services/published-cars";
 import { setCurrentCarId } from "./car-detail";
 import { isFavorite, toggleFavorite } from "../services/favorites";
@@ -17,23 +17,8 @@ export function renderHomePage(container: HTMLElement): void {
 
   const isSeller = user.role === "seller";
 
-  // Obtener autos a mostrar
-  const allCars: any[] = getAllCarsForDisplay();
-  const carsToShow = isSeller ? getPublishedCarsBySeller(user.id).map(published => ({
-    id: published.id,
-    make: published.make,
-    model: published.model,
-    year: published.year,
-    price: published.price,
-    mileage: published.mileage,
-    transmission: published.transmission,
-    fuel: published.fuel,
-    color: published.color,
-    location: published.location,
-    description: published.description,
-    images: published.images,
-    specs: published.specs || {}
-  })) : allCars;
+  const allCars: Car[] = getAllCarsForDisplay();
+  const carsToShow: Car[] = isSeller ? getPublishedCarsBySeller(user.id) : allCars;
 
   // Variables para filtros (solo para compradores)
   let makes: string[] = [];
@@ -45,13 +30,13 @@ export function renderHomePage(container: HTMLElement): void {
   let maxPrice = 0;
 
   if (!isSeller) {
-    makes = [...new Set(allCars.map((c: any) => c.make))].sort() as string[];
-    locations = [...new Set(allCars.map((c: any) => c.location))].sort() as string[];
-    fuels = [...new Set(allCars.map((c: any) => c.fuel))].sort() as string[];
-    transmissions = [...new Set(allCars.map((c: any) => c.transmission))].sort() as string[];
-    years = [...new Set(allCars.map((c: any) => c.year))].sort((a: number, b: number) => b - a) as number[];
-    minPrice = Math.min(...allCars.map((c: any) => c.price));
-    maxPrice = Math.max(...allCars.map((c: any) => c.price));
+    makes = [...new Set(allCars.map((car) => car.make))].sort();
+    locations = [...new Set(allCars.map((car) => car.location))].sort();
+    fuels = [...new Set(allCars.map((car) => car.fuel))].sort();
+    transmissions = [...new Set(allCars.map((car) => car.transmission))].sort();
+    years = [...new Set(allCars.map((car) => car.year))].sort((a, b) => b - a);
+    minPrice = Math.min(...allCars.map((car) => car.price));
+    maxPrice = Math.max(...allCars.map((car) => car.price));
   }
 
   container.innerHTML = `
@@ -192,7 +177,7 @@ export function renderHomePage(container: HTMLElement): void {
   });
 
   // Función para renderizar autos
-  function renderCars(cars: any[]) {
+  function renderCars(cars: Car[]) {
     const container = document.getElementById("cars-container");
     if (!container) return;
 
@@ -205,7 +190,7 @@ export function renderHomePage(container: HTMLElement): void {
       return;
     }
 
-    container.innerHTML = cars.map((car: any) => {
+    container.innerHTML = cars.map((car) => {
       const publishedCar = getPublishedCarById(car.id);
       const isOwner = publishedCar && publishedCar.sellerId === user!.id;
       const sellerName = publishedCar ? getUserById(publishedCar.sellerId)?.name : null;

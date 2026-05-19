@@ -7,39 +7,40 @@ export interface ComparisonTableProps {
   metrics: ComparisonMetrics;
 }
 
+type ComparisonCategory = "price" | "mileage" | "year" | "power" | "features";
+
+type ComparisonRow = {
+  label: string;
+  key: string;
+  category?: ComparisonCategory;
+  getValue: (car: Car) => string;
+};
+
 export function ComparisonTable({ cars, metrics }: ComparisonTableProps): string {
-  const rows = [
+  const rows: ComparisonRow[] = [
     {
       label: "Precio",
       key: "price",
       category: "price",
       getValue: (car: Car) => `$${car.price.toLocaleString()}`,
-      isBetter: (a: Car, b: Car) => a.price < b.price,
     },
     {
       label: "Kilometraje",
       key: "mileage",
       category: "mileage",
       getValue: (car: Car) => `${car.mileage.toLocaleString()} km`,
-      isBetter: (a: Car, b: Car) => a.mileage < b.mileage,
     },
     {
       label: "Año",
       key: "year",
       category: "year",
       getValue: (car: Car) => car.year.toString(),
-      isBetter: (a: Car, b: Car) => a.year > b.year,
     },
     {
       label: "Potencia",
       key: "power",
       category: "power",
       getValue: (car: Car) => car.specs.power,
-      isBetter: (a: Car, b: Car) => {
-        const powerA = parseInt(a.specs.power);
-        const powerB = parseInt(b.specs.power);
-        return powerA > powerB;
-      },
     },
     {
       label: "Combustible",
@@ -56,7 +57,6 @@ export function ComparisonTable({ cars, metrics }: ComparisonTableProps): string
       key: "features",
       category: "features",
       getValue: (car: Car) => `${car.specs.features.length} items`,
-      isBetter: (a: Car, b: Car) => a.specs.features.length > b.specs.features.length,
     },
   ];
 
@@ -65,7 +65,7 @@ export function ComparisonTable({ cars, metrics }: ComparisonTableProps): string
       const cells = cars
         .map(car => {
           const isWinner =
-            row.category && isWinnerInCategory(car.id, row.category as any, metrics);
+            row.category && isWinnerInCategory(car.id, row.category, metrics);
           const highlightClass = isWinner
             ? "bg-amber-100 font-bold text-amber-900 border-l-4 border-amber-400"
             : "bg-white text-slate-700";

@@ -1,23 +1,49 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
+import type { Car as PrismaCar, FuelType, Transmission } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreatePublishedCarDto } from './dto/create-published-car.dto';
 import { UpdatePublishedCarDto } from './dto/update-published-car.dto';
 import { PublishedCar } from './published-car.entity';
 
 const MAX_IMAGES = 10;
-
-const FUEL_TYPE_MAP: Record<string, 'GASOLINE' | 'DIESEL' | 'HYBRID' | 'ELECTRIC' | 'CNG' | 'OTHER'> = {
-  Nafta: 'GASOLINE',
-  Diesel: 'DIESEL',
-  Híbrido: 'HYBRID',
-  Eléctrico: 'ELECTRIC',
-  GNC: 'CNG',
+const DEFAULT_SPECS = {
+  engine: 'No especificado',
+  power: 'No especificada',
+  torque: 'No especificado',
+  acceleration: 'No especificado',
+  topSpeed: 'No especificado',
+  consumption: 'No especificado',
+  dimensions: 'No especificadas',
+  weight: 'No especificado',
+  features: [] as string[],
 };
 
-const TRANSMISSION_MAP: Record<string, 'MANUAL' | 'AUTOMATIC' | 'SEMI_AUTOMATIC'> = {
-  Manual: 'MANUAL',
-  Automática: 'AUTOMATIC',
-  CVT: 'SEMI_AUTOMATIC',
+const FUEL_TYPE_MAP: Record<string, FuelType> = {
+  nafta: 'GASOLINE',
+  gasoline: 'GASOLINE',
+  diesel: 'DIESEL',
+  hibrido: 'HYBRID',
+  hybrid: 'HYBRID',
+  electrico: 'ELECTRIC',
+  electric: 'ELECTRIC',
+  gnc: 'CNG',
+  cng: 'CNG',
+  lpg: 'LPG',
+  other: 'OTHER',
+  otro: 'OTHER',
+};
+
+const TRANSMISSION_MAP: Record<string, Transmission> = {
+  manual: 'MANUAL',
+  automatica: 'AUTOMATIC',
+  automatic: 'AUTOMATIC',
+  cvt: 'SEMI_AUTOMATIC',
+  semiautomatica: 'SEMI_AUTOMATIC',
+  semi_automatic: 'SEMI_AUTOMATIC',
 };
 
 @Injectable()
@@ -30,7 +56,7 @@ export class PublishedCarsRepository {
       orderBy: { createdAt: 'desc' },
     });
 
-    return cars.map(this.normalizeCar);
+    return cars.map((car) => this.normalizeCar(car));
   }
 
   async findById(id: string): Promise<PublishedCar | undefined> {
@@ -44,41 +70,39 @@ export class PublishedCarsRepository {
       orderBy: { createdAt: 'desc' },
     });
 
-    return cars.map(this.normalizeCar);
+    return cars.map((car) => this.normalizeCar(car));
   }
 
   async create(dto: CreatePublishedCarDto): Promise<PublishedCar> {
-    if (dto.images.length === 0) {
-      throw new BadRequestException('Debe incluir al menos una imagen.');
-    }
-
-    if (dto.images.length > MAX_IMAGES) {
-      throw new BadRequestException(`Solo se permiten hasta ${MAX_IMAGES} imágenes.`);
-    }
+    const images = this.validateImages(dto.images);
+    const specs = this.normalizeSpecs(dto.specs);
+    const brand = dto.make.trim();
+    const model = dto.model.trim();
 
     const car = await this.prisma.car.create({
       data: {
         sellerId: dto.sellerId.toString(),
-        title: `${dto.make} ${dto.model}`,
-        brand: dto.make,
-        model: dto.model,
+        title: `${brand} ${model}`,
+        brand,
+        model,
         year: dto.year,
         mileage: dto.mileage,
         price: dto.price,
-        description: dto.description,
-        engine: dto.specs.engine,
-        power: dto.specs.power,
-        torque: dto.specs.torque,
-        acceleration: dto.specs.acceleration,
-        topSpeed: dto.specs.topSpeed,
-        consumption: dto.specs.consumption,
-        dimensions: dto.specs.dimensions,
-        weight: dto.specs.weight,
-        features: dto.specs.features,
-        fuelType: FUEL_TYPE_MAP[dto.fuel] ?? 'OTHER',
-        transmission: TRANSMISSION_MAP[dto.transmission] ?? 'SEMI_AUTOMATIC',
-        location: dto.location,
-        images: dto.images,
+        description: dto.description.trim(),
+        color: dto.color?.trim() || 'No especificado',
+        engine: specs.engine,
+        power: specs.power,
+        torque: specs.torque,
+        acceleration: specs.acceleration,
+        topSpeed: specs.topSpeed,
+        consumption: specs.consumption,
+        dimensions: specs.dimensions,
+        weight: specs.weight,
+        features: specs.features,
+        fuelType: this.toFuelType(dto.fuel),
+        transmission: this.toTransmission(dto.transmission),
+        location: dto.location.trim(),
+        images,
         isPublished: true,
       },
     });
@@ -88,33 +112,41 @@ export class PublishedCarsRepository {
 
   async update(id: string, dto: UpdatePublishedCarDto): Promise<PublishedCar> {
     const current = await this.requireById(id);
-
-    const data: Record<string, unknown> = {
-      title: dto.make || current.make + ' ' + current.model,
-      brand: dto.make ?? current.make,
-      model: dto.model ?? current.model,
-      year: dto.year ?? current.year,
-      mileage: dto.mileage ?? current.mileage,
-      price: dto.price ?? current.price,
-      description: dto.description ?? current.description,
-      location: dto.location ?? current.location,
-      images: dto.images ?? current.images,
-      fuelType: dto.fuel ? FUEL_TYPE_MAP[dto.fuel] ?? 'OTHER' : current.fuel as any,
-      transmission: dto.transmission ? TRANSMISSION_MAP[dto.transmission] ?? 'SEMI_AUTOMATIC' : current.transmission as any,
-      engine: dto.specs?.engine ?? current.specs.engine,
-      power: dto.specs?.power ?? current.specs.power,
-      torque: dto.specs?.torque ?? current.specs.torque,
-      acceleration: dto.specs?.acceleration ?? current.specs.acceleration,
-      topSpeed: dto.specs?.topSpeed ?? current.specs.topSpeed,
-      consumption: dto.specs?.consumption ?? current.specs.consumption,
-      dimensions: dto.specs?.dimensions ?? current.specs.dimensions,
-      weight: dto.specs?.weight ?? current.specs.weight,
-      features: dto.specs?.features ?? current.specs.features,
-    };
+    const specs = dto.specs ? this.normalizeSpecs(dto.specs) : current.specs;
+    const images =
+      dto.images === undefined ? current.images : this.validateImages(dto.images);
+    const brand = dto.make?.trim() || current.make;
+    const model = dto.model?.trim() || current.model;
 
     const updated = await this.prisma.car.update({
       where: { id },
-      data,
+      data: {
+        title: `${brand} ${model}`,
+        brand,
+        model,
+        year: dto.year ?? current.year,
+        mileage: dto.mileage ?? current.mileage,
+        price: dto.price ?? current.price,
+        description: dto.description?.trim() ?? current.description,
+        color: dto.color?.trim() ?? current.color,
+        location: dto.location?.trim() ?? current.location,
+        images,
+        fuelType: dto.fuel
+          ? this.toFuelType(dto.fuel)
+          : this.toFuelType(current.fuel),
+        transmission: dto.transmission
+          ? this.toTransmission(dto.transmission)
+          : this.toTransmission(current.transmission),
+        engine: specs.engine,
+        power: specs.power,
+        torque: specs.torque,
+        acceleration: specs.acceleration,
+        topSpeed: specs.topSpeed,
+        consumption: specs.consumption,
+        dimensions: specs.dimensions,
+        weight: specs.weight,
+        features: specs.features,
+      },
     });
 
     return this.normalizeCar(updated);
@@ -134,7 +166,7 @@ export class PublishedCarsRepository {
     return car;
   }
 
-  private normalizeCar(car: any): PublishedCar {
+  private normalizeCar(car: PrismaCar): PublishedCar {
     return {
       id: car.id,
       make: car.brand,
@@ -144,22 +176,22 @@ export class PublishedCarsRepository {
       mileage: car.mileage,
       transmission: car.transmission,
       fuel: this.mapFuelLabel(car.fuelType),
-      color: car.color,
+      color: car.color ?? 'No especificado',
       location: car.location,
       description: car.description,
-      images: car.images,
+      images: car.images ?? [],
       sellerId: Number(car.sellerId),
       publishedAt: car.createdAt.toISOString(),
       updatedAt: car.updatedAt.toISOString(),
       specs: {
-        engine: car.engine ?? 'No especificado',
-        power: car.power ?? 'No especificada',
-        torque: car.torque ?? 'No especificado',
-        acceleration: car.acceleration ?? 'No especificado',
-        topSpeed: car.topSpeed ?? 'No especificado',
-        consumption: car.consumption ?? 'No especificado',
-        dimensions: car.dimensions ?? 'No especificadas',
-        weight: car.weight ?? 'No especificado',
+        engine: car.engine ?? DEFAULT_SPECS.engine,
+        power: car.power ?? DEFAULT_SPECS.power,
+        torque: car.torque ?? DEFAULT_SPECS.torque,
+        acceleration: car.acceleration ?? DEFAULT_SPECS.acceleration,
+        topSpeed: car.topSpeed ?? DEFAULT_SPECS.topSpeed,
+        consumption: car.consumption ?? DEFAULT_SPECS.consumption,
+        dimensions: car.dimensions ?? DEFAULT_SPECS.dimensions,
+        weight: car.weight ?? DEFAULT_SPECS.weight,
         features: car.features ?? [],
       },
     };
@@ -172,13 +204,69 @@ export class PublishedCarsRepository {
       case 'DIESEL':
         return 'Diesel';
       case 'HYBRID':
-        return 'Híbrido';
+        return 'Hibrido';
       case 'ELECTRIC':
-        return 'Eléctrico';
+        return 'Electrico';
       case 'CNG':
         return 'GNC';
       default:
         return 'Otro';
     }
+  }
+
+  private toFuelType(value: string): FuelType {
+    return FUEL_TYPE_MAP[this.normalizeKey(value)] ?? 'OTHER';
+  }
+
+  private toTransmission(value: string): Transmission {
+    return TRANSMISSION_MAP[this.normalizeKey(value)] ?? 'SEMI_AUTOMATIC';
+  }
+
+  private validateImages(images: string[] | undefined): string[] {
+    if (!Array.isArray(images)) {
+      throw new BadRequestException('Debe incluir al menos una imagen.');
+    }
+
+    const normalizedImages = images
+      .map((image) => (typeof image === 'string' ? image.trim() : ''))
+      .filter(Boolean);
+
+    if (normalizedImages.length === 0) {
+      throw new BadRequestException('Debe incluir al menos una imagen.');
+    }
+
+    if (normalizedImages.length > MAX_IMAGES) {
+      throw new BadRequestException(
+        `Solo se permiten hasta ${MAX_IMAGES} imagenes.`,
+      );
+    }
+
+    return normalizedImages;
+  }
+
+  private normalizeSpecs(
+    specs: Partial<CreatePublishedCarDto['specs']> | undefined,
+  ): CreatePublishedCarDto['specs'] {
+    return {
+      engine: specs?.engine?.trim() || DEFAULT_SPECS.engine,
+      power: specs?.power?.trim() || DEFAULT_SPECS.power,
+      torque: specs?.torque?.trim() || DEFAULT_SPECS.torque,
+      acceleration: specs?.acceleration?.trim() || DEFAULT_SPECS.acceleration,
+      topSpeed: specs?.topSpeed?.trim() || DEFAULT_SPECS.topSpeed,
+      consumption: specs?.consumption?.trim() || DEFAULT_SPECS.consumption,
+      dimensions: specs?.dimensions?.trim() || DEFAULT_SPECS.dimensions,
+      weight: specs?.weight?.trim() || DEFAULT_SPECS.weight,
+      features: Array.isArray(specs?.features)
+        ? specs.features.map((feature) => feature.trim()).filter(Boolean)
+        : DEFAULT_SPECS.features,
+    };
+  }
+
+  private normalizeKey(value: string): string {
+    return value
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/[\s-]+/g, '_')
+      .toLowerCase();
   }
 }

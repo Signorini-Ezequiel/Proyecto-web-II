@@ -1,10 +1,7 @@
-import type { UserRole } from '@prisma/client';
-
-export type JwtTokenType = 'access' | 'refresh';
+import { UserRole } from '../../common/types/user-role';
 
 export interface JwtPayload {
-  sub: string;
+  sub: number;
   email: string;
   role: UserRole;
-  tokenType: JwtTokenType;
 }

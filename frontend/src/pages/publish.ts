@@ -3,9 +3,11 @@ import { getSessionUser, logout } from "../services/auth";
 import { navigateTo, ROUTES } from "../utils/router";
 import { Icons } from "../utils/icons";
 import { MAKES } from "../data/makes";
-import { savePublishedCar, updatePublishedCar, getPublishedCarById } from "../services/published-cars";
+import { DEFAULT_CAR_SPECS, savePublishedCar, updatePublishedCar, getPublishedCarById } from "../services/published-cars";
 import type { PublishedCar } from "../services/published-cars";
+import type { CreatePublishedCarDto } from "../types/car";
 import { showToast } from "../utils/toast";
+import { uploadImages, validateImageFiles } from "../services/upload.service";
 
 // Validaciones de caracteres permitidos por campo
 const FIELD_RULES = {
@@ -42,6 +44,7 @@ export function renderPublishPage(container: HTMLElement, isEditMode = false): v
   }
 
   let uploadedPhotos: File[] = [];
+  let uploadedPhotoUrls: string[] = [];
   const errors: { [key: string]: string } = {};
 
   // Obtener datos del auto a editar si estamos en modo edición
@@ -384,9 +387,10 @@ export function renderPublishPage(container: HTMLElement, isEditMode = false): v
     handleFileSelection(files);
   });
 
-  function handleFileSelection(files: any[]) {
-    const imageFiles = files.filter(file => file.type.startsWith("image/"));
-    uploadedPhotos = [...uploadedPhotos, ...imageFiles].slice(0, 10); // Máximo 10 fotos
+  function handleFileSelection(files: File[]) {
+    const { validFiles, errors: imageErrors } = validateImageFiles(files, uploadedPhotos.length);
+    imageErrors.forEach((message) => showToast(message, "error"));
+    uploadedPhotos = [...uploadedPhotos, ...validFiles].slice(0, 10);
 
     photoCount.textContent = uploadedPhotos.length.toString();
     updatePhotosPreview();
@@ -417,6 +421,7 @@ export function renderPublishPage(container: HTMLElement, isEditMode = false): v
         const index = parseInt((e.target as HTMLElement).closest(".remove-photo")?.getAttribute("data-index") || "-1");
         if (index >= 0) {
           uploadedPhotos.splice(index, 1);
+          uploadedPhotoUrls.splice(index, 1);
           photoCount.textContent = uploadedPhotos.length.toString();
           updatePhotosPreview();
         }
@@ -426,7 +431,7 @@ export function renderPublishPage(container: HTMLElement, isEditMode = false): v
 
   // Form submission
   const form = document.getElementById("publish-form") as HTMLFormElement;
-  form.addEventListener("submit", (e) => {
+  form.addEventListener("submit", async (e) => {
     e.preventDefault();
 
     // Limpiar errores previos
@@ -483,8 +488,19 @@ export function renderPublishPage(container: HTMLElement, isEditMode = false): v
       return;
     }
 
+    if (uploadedPhotos.length > 0 && uploadedPhotoUrls.length !== uploadedPhotos.length) {
+      const uploadResult = await uploadImages(uploadedPhotos);
+
+      if (!uploadResult.ok) {
+        showToast(uploadResult.message, "error");
+        return;
+      }
+
+      uploadedPhotoUrls = uploadResult.images;
+    }
+
     // Obtener datos del formulario
-    const formData = {
+    const formData: CreatePublishedCarDto = {
       make: makeInput.value,
       model: (document.getElementById("model") as HTMLInputElement).value,
       year: yearValue,
@@ -495,14 +511,15 @@ export function renderPublishPage(container: HTMLElement, isEditMode = false): v
       color: (document.getElementById("color") as HTMLInputElement).value,
       location: (document.getElementById("location") as HTMLInputElement).value,
       description: (document.getElementById("description") as HTMLTextAreaElement).value,
-      images: uploadedPhotos.length > 0 ? uploadedPhotos.map(() => "/images/auto1-1.jpg") : existingCar?.images || ["/images/auto1-1.jpg"], // Placeholder para imágenes
+      images: uploadedPhotoUrls.length > 0 ? uploadedPhotoUrls : existingCar?.images || [],
       sellerId: user.id,
+      specs: existingCar?.specs ?? DEFAULT_CAR_SPECS,
     };
 
     try {
       if (isEditMode && existingCar) {
         // Actualizar auto existente
-        const success = updatePublishedCar(existingCar.id, formData);
+        const success = await updatePublishedCar(existingCar.id, formData);
         if (success) {
           showToast("Vehículo actualizado exitosamente", "success");
         } else {
@@ -511,8 +528,7 @@ export function renderPublishPage(container: HTMLElement, isEditMode = false): v
         }
       } else {
         // Crear nuevo auto
-        const newCar = savePublishedCar(formData);
-        console.log("Vehículo publicado:", newCar);
+        await savePublishedCar(formData);
         showToast("Vehículo publicado exitosamente", "success");
       }
 

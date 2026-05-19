@@ -1,6 +1,6 @@
 import { NavBar, NavBarListeners } from "../components/NavBar";
 import { navigateTo, ROUTES } from "../utils/router";
-import { CARS } from "../data/cars";
+import { CARS, type Car } from "../data/cars";
 import { getPublishedCarById } from "../services/published-cars";
 import { getFavorites, toggleFavorite, isFavorite } from "../services/favorites";
 import { setCurrentCarId } from "./car-detail";
@@ -8,31 +8,9 @@ import { Icons } from "../utils/icons";
 
 export function renderFavoritesPage(container: HTMLElement): void {
   const favoriteIds = getFavorites();
-  const favoriteCars = favoriteIds.map(id => {
-    if (id.startsWith("published_")) {
-      const publishedCar = getPublishedCarById(id);
-      if (publishedCar) {
-        return {
-          id: publishedCar.id,
-          make: publishedCar.make,
-          model: publishedCar.model,
-          year: publishedCar.year,
-          price: publishedCar.price,
-          mileage: publishedCar.mileage,
-          transmission: publishedCar.transmission,
-          fuel: publishedCar.fuel,
-          color: publishedCar.color,
-          location: publishedCar.location,
-          description: publishedCar.description,
-          images: publishedCar.images,
-          specs: publishedCar.specs || {}
-        };
-      }
-    } else {
-      return CARS.find(car => car.id === id);
-    }
-    return null;
-  }).filter(Boolean) as any[];
+  const favoriteCars: Car[] = favoriteIds
+    .map((id) => getPublishedCarById(id) ?? CARS.find((car) => car.id === id) ?? null)
+    .filter((car): car is Car => car !== null);
 
   container.innerHTML = `
     <main class="min-h-screen app-bg text-slate-900 pt-20">

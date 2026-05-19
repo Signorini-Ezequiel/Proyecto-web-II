@@ -6,7 +6,7 @@ export class ComparisonRepository {
   constructor(private readonly prisma: PrismaService) {}
 
   async findByUserId(userId: string) {
-    return this.prisma.comparison.findUnique({
+    return this.prisma.comparison.findFirst({
       where: { userId },
       include: { cars: true },
     });
@@ -31,7 +31,10 @@ export class ComparisonRepository {
     };
   }
 
-  async addCar(comparisonId: string, carId: string): Promise<{ id: string; carIds: string[] }> {
+  async addCar(
+    comparisonId: string,
+    carId: string,
+  ): Promise<{ id: string; carIds: string[] }> {
     await this.prisma.comparisonCar.create({
       data: {
         comparisonId,
@@ -47,7 +50,10 @@ export class ComparisonRepository {
     };
   }
 
-  async removeCar(comparisonId: string, carId: string): Promise<{ id: string; carIds: string[] }> {
+  async removeCar(
+    comparisonId: string,
+    carId: string,
+  ): Promise<{ id: string; carIds: string[] }> {
     await this.prisma.comparisonCar.delete({
       where: {
         comparisonId_carId: {
