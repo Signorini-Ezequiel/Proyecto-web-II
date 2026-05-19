@@ -1,23 +1,23 @@
 import { Module } from '@nestjs/common';
-import { ConfigModule } from '@nestjs/config';
+import { AuthModule } from './auth/auth.module';
+import { CarQuestionsModule } from './car-questions/car-questions.module';
+import { CarsModule } from './cars/cars.module';
+import { ComparisonModule } from './comparison/comparison.module';
+import { FavoritesModule } from './favorites/favorites.module';
+import { PublishedCarsModule } from './published-cars/published-cars.module';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
-import { AuthModule } from './auth/auth.module';
-import { validateEnvironment } from './config/env.validation';
-import { PrismaModule } from './prisma/prisma.module';
-import { CarsModule } from './cars/cars.module';
+import { UsersModule } from './users/users.module';
 
 @Module({
   imports: [
-    ConfigModule.forRoot({
-      isGlobal: true,
-      cache: true,
-      envFilePath: '.env',
-      validate: validateEnvironment,
-    }),
-    PrismaModule,
     AuthModule,
+    UsersModule,
     CarsModule,
+    PublishedCarsModule,
+    FavoritesModule,
+    ComparisonModule,
+    CarQuestionsModule,
   ],
   controllers: [AppController],
   providers: [AppService],
