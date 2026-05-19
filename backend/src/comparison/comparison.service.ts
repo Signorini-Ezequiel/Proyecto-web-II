@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { MAX_COMPARISON_CARS } from '../common/constants/comparison.constants';
 import { ComparisonRepository } from './comparison.repository';
 
@@ -6,55 +6,67 @@ import { ComparisonRepository } from './comparison.repository';
 export class ComparisonService {
   constructor(private readonly comparisonRepository: ComparisonRepository) {}
 
-  getIds(userId: number): string[] {
-    return this.comparisonRepository.getIds(userId);
-  }
+  async getByUserId(userId: string): Promise<{ id: string; carIds: string[] }> {
+    const comparison = await this.comparisonRepository.findByUserId(userId);
 
-  add(userId: number, carId: string): { ok: true; ids: string[] } {
-    const ids = this.comparisonRepository.getIds(userId);
-
-    if (ids.includes(carId)) {
-      return { ok: true, ids };
-    }
-
-    if (ids.length >= MAX_COMPARISON_CARS) {
-      throw new BadRequestException('Solo se pueden comparar hasta 4 autos.');
+    if (!comparison) {
+      return this.comparisonRepository.create(userId);
     }
 
     return {
-      ok: true,
-      ids: this.comparisonRepository.save(userId, [...ids, carId]),
+      id: comparison.id,
+      carIds: comparison.cars.map((item) => item.carId),
     };
   }
 
-  remove(userId: number, carId: string): { ok: true; ids: string[] } {
-    const ids = this.comparisonRepository
-      .getIds(userId)
-      .filter((id) => id !== carId);
-    return { ok: true, ids: this.comparisonRepository.save(userId, ids) };
+  async create(userId: string): Promise<{ id: string; carIds: string[] }> {
+    return this.comparisonRepository.create(userId);
   }
 
-  toggle(
-    userId: number,
+  async addCar(
+    comparisonId: string,
+    userId: string,
     carId: string,
-  ): { ok: true; selected: boolean; ids: string[] } {
-    const ids = this.comparisonRepository.getIds(userId);
+  ): Promise<{ id: string; carIds: string[] }> {
+    const comparison = await this.comparisonRepository.findById(comparisonId);
 
-    if (ids.includes(carId)) {
-      const updatedIds = ids.filter((id) => id !== carId);
+    if (!comparison) {
+      throw new NotFoundException('Comparacion no encontrada.');
+    }
+
+    if (comparison.userId !== userId) {
+      throw new ForbiddenException('No puedes modificar esta comparacion.');
+    }
+
+    if (comparison.cars.some((item) => item.carId === carId)) {
       return {
-        ok: true,
-        selected: false,
-        ids: this.comparisonRepository.save(userId, updatedIds),
+        id: comparison.id,
+        carIds: comparison.cars.map((item) => item.carId),
       };
     }
 
-    const result = this.add(userId, carId);
-    return { ok: true, selected: true, ids: result.ids };
+    if (comparison.cars.length >= MAX_COMPARISON_CARS) {
+      throw new BadRequestException('Solo se pueden comparar hasta 4 autos.');
+    }
+
+    return this.comparisonRepository.addCar(comparisonId, carId);
   }
 
-  clear(userId: number): { ok: true; ids: string[] } {
-    this.comparisonRepository.clear(userId);
-    return { ok: true, ids: [] };
+  async removeCar(
+    comparisonId: string,
+    userId: string,
+    carId: string,
+  ): Promise<{ id: string; carIds: string[] }> {
+    const comparison = await this.comparisonRepository.findById(comparisonId);
+
+    if (!comparison) {
+      throw new NotFoundException('Comparacion no encontrada.');
+    }
+
+    if (comparison.userId !== userId) {
+      throw new ForbiddenException('No puedes modificar esta comparacion.');
+    }
+
+    return this.comparisonRepository.removeCar(comparisonId, carId);
   }
 }

@@ -5,29 +5,29 @@ import { CarQuestionsService } from './car-questions.service';
 import { AnswerCarQuestionDto } from './dto/answer-car-question.dto';
 import { CreateCarQuestionDto } from './dto/create-car-question.dto';
 
-@ApiTags('car-questions')
-@Controller('car-questions')
+@ApiTags('questions')
+@Controller('questions')
 export class CarQuestionsController {
   constructor(private readonly carQuestionsService: CarQuestionsService) {}
 
   @Get('car/:carId')
   @ApiOkResponse({ description: 'Lista preguntas publicas de un auto.' })
-  findByCarId(@Param('carId') carId: string): PublicCarQuestion[] {
+  async findByCarId(@Param('carId') carId: string): Promise<PublicCarQuestion[]> {
     return this.carQuestionsService.findByCarId(carId);
   }
 
   @Post()
   @ApiCreatedResponse({ description: 'Publica una pregunta.' })
-  create(@Body() dto: CreateCarQuestionDto): PublicCarQuestion {
+  async create(@Body() dto: CreateCarQuestionDto): Promise<PublicCarQuestion> {
     return this.carQuestionsService.create(dto);
   }
 
   @Patch(':questionId/answer')
   @ApiOkResponse({ description: 'Responde una pregunta.' })
-  answer(
+  async answer(
     @Param('questionId') questionId: string,
     @Body() dto: AnswerCarQuestionDto,
-  ): PublicCarQuestion {
+  ): Promise<PublicCarQuestion> {
     return this.carQuestionsService.answer(questionId, dto);
   }
 }

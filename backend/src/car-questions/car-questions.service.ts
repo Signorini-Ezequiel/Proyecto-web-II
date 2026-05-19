@@ -10,15 +10,15 @@ export class CarQuestionsService {
     private readonly carQuestionsRepository: CarQuestionsRepository,
   ) {}
 
-  findByCarId(carId: string): PublicCarQuestion[] {
+  async findByCarId(carId: string): Promise<PublicCarQuestion[]> {
     return this.carQuestionsRepository.findByCarId(carId);
   }
 
-  create(dto: CreateCarQuestionDto): PublicCarQuestion {
+  async create(dto: CreateCarQuestionDto): Promise<PublicCarQuestion> {
     return this.carQuestionsRepository.create(dto);
   }
 
-  answer(questionId: string, dto: AnswerCarQuestionDto): PublicCarQuestion {
+  async answer(questionId: string, dto: AnswerCarQuestionDto): Promise<PublicCarQuestion> {
     return this.carQuestionsRepository.answer(questionId, dto);
   }
 }

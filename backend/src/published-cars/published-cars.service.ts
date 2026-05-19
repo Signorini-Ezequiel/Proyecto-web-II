@@ -10,28 +10,28 @@ export class PublishedCarsService {
     private readonly publishedCarsRepository: PublishedCarsRepository,
   ) {}
 
-  findAll(): PublishedCar[] {
+  async findAll(): Promise<PublishedCar[]> {
     return this.publishedCarsRepository.findAll();
   }
 
-  findById(id: string): PublishedCar {
+  async findById(id: string): Promise<PublishedCar> {
     return this.publishedCarsRepository.requireById(id);
   }
 
-  findBySellerId(sellerId: number): PublishedCar[] {
+  async findBySellerId(sellerId: number): Promise<PublishedCar[]> {
     return this.publishedCarsRepository.findBySellerId(sellerId);
   }
 
-  create(dto: CreatePublishedCarDto): PublishedCar {
+  async create(dto: CreatePublishedCarDto): Promise<PublishedCar> {
     return this.publishedCarsRepository.create(dto);
   }
 
-  update(id: string, dto: UpdatePublishedCarDto): PublishedCar {
+  async update(id: string, dto: UpdatePublishedCarDto): Promise<PublishedCar> {
     return this.publishedCarsRepository.update(id, dto);
   }
 
-  delete(id: string): { ok: true } {
-    this.publishedCarsRepository.delete(id);
+  async delete(id: string): Promise<{ ok: true }> {
+    await this.publishedCarsRepository.delete(id);
     return { ok: true };
   }
 }

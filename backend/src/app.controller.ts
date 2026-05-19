@@ -1,5 +1,5 @@
 import { Controller, Get } from '@nestjs/common';
-import { ApiOkResponse, ApiTags } from '@nestjs/swagger';
+import { ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
 import type { AppHealthResponse } from './app-health-response';
 import { AppService } from './app.service';
 
@@ -9,6 +9,7 @@ export class AppController {
   constructor(private readonly appService: AppService) {}
 
   @Get()
+  @ApiOperation({ summary: 'Verifica el estado de salud de la API.' })
   @ApiOkResponse({
     description: 'Mensaje de estado de la API.',
     schema: {

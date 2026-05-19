@@ -5,6 +5,7 @@ import { CarsModule } from './cars/cars.module';
 import { ComparisonModule } from './comparison/comparison.module';
 import { FavoritesModule } from './favorites/favorites.module';
 import { PublishedCarsModule } from './published-cars/published-cars.module';
+import { UploadsModule } from './uploads/uploads.module';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { UsersModule } from './users/users.module';
@@ -15,6 +16,7 @@ import { UsersModule } from './users/users.module';
     UsersModule,
     CarsModule,
     PublishedCarsModule,
+    UploadsModule,
     FavoritesModule,
     ComparisonModule,
     CarQuestionsModule,

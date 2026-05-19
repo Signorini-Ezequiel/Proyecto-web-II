@@ -1,60 +1,121 @@
-const COMPARISON_KEY = "autopoint_comparison";
+import { getSessionToken, getSessionUser } from "./auth";
+
+const BASE = "http://localhost:3000";
 const MAX_COMPARISON_CARS = 4;
 
-export function getComparisonIds(): string[] {
-  const stored = localStorage.getItem(COMPARISON_KEY);
+type ComparisonResponse = {
+  id: string;
+  carIds: string[];
+};
 
-  if (!stored) return [];
+type ToggleResult = {
+  selected: boolean;
+  reason?: "limit";
+};
 
-  try {
-    const parsed = JSON.parse(stored);
-    return Array.isArray(parsed) ? parsed.filter((item): item is string => typeof item === "string") : [];
-  } catch {
-    return [];
+function getAuthHeaders(): HeadersInit | null {
+  const token = getSessionToken();
+  if (!token) return null;
+  return {
+    "Content-Type": "application/json",
+    Authorization: `Bearer ${token}`,
+  };
+}
+
+async function fetchComparison(): Promise<ComparisonResponse | null> {
+  const headers = getAuthHeaders();
+  if (!headers) return null;
+
+  const response = await fetch(`${BASE}/comparisons/me`, {
+    method: "GET",
+    headers,
+  });
+
+  if (!response.ok) {
+    return null;
   }
+
+  return response.json();
 }
 
-function saveComparisonIds(ids: string[]): void {
-  localStorage.setItem(COMPARISON_KEY, JSON.stringify(ids.slice(0, MAX_COMPARISON_CARS)));
+export async function getComparisonIds(): Promise<string[]> {
+  const comparison = await fetchComparison();
+  return comparison?.carIds ?? [];
 }
 
-export function isInComparison(carId: string): boolean {
-  return getComparisonIds().includes(carId);
+export async function isInComparison(carId: string): Promise<boolean> {
+  const ids = await getComparisonIds();
+  return ids.includes(carId);
 }
 
-export function addToComparison(carId: string): { ok: boolean; reason?: "duplicate" | "limit" } {
-  const ids = getComparisonIds();
-
-  if (ids.includes(carId)) {
-    return { ok: false, reason: "duplicate" };
-  }
-
-  if (ids.length >= MAX_COMPARISON_CARS) {
+export async function addToComparison(carId: string): Promise<{ ok: boolean; reason?: "duplicate" | "limit" }> {
+  const comparison = await fetchComparison();
+  if (!comparison) {
     return { ok: false, reason: "limit" };
   }
 
-  saveComparisonIds([...ids, carId]);
+  if (comparison.carIds.includes(carId)) {
+    return { ok: false, reason: "duplicate" };
+  }
+
+  if (comparison.carIds.length >= MAX_COMPARISON_CARS) {
+    return { ok: false, reason: "limit" };
+  }
+
+  const headers = getAuthHeaders();
+  if (!headers) {
+    return { ok: false, reason: "limit" };
+  }
+
+  const response = await fetch(`${BASE}/comparisons/${comparison.id}/cars/${carId}`, {
+    method: "POST",
+    headers,
+  });
+
+  if (!response.ok) {
+    return { ok: false, reason: "limit" };
+  }
+
   return { ok: true };
 }
 
-export function removeFromComparison(carId: string): void {
-  saveComparisonIds(getComparisonIds().filter((id) => id !== carId));
+export async function removeFromComparison(carId: string): Promise<void> {
+  const comparison = await fetchComparison();
+  const headers = getAuthHeaders();
+  if (!comparison || !headers) return;
+
+  await fetch(`${BASE}/comparisons/${comparison.id}/cars/${carId}`, {
+    method: "DELETE",
+    headers,
+  });
 }
 
-export function toggleComparison(carId: string): { selected: boolean; reason?: "limit" } {
-  if (isInComparison(carId)) {
-    removeFromComparison(carId);
+export async function toggleComparison(carId: string): Promise<ToggleResult> {
+  const comparison = await fetchComparison();
+  if (!comparison) {
     return { selected: false };
   }
 
-  const result = addToComparison(carId);
-  if (!result.ok) {
-    return { selected: false, reason: result.reason === "limit" ? "limit" : undefined };
+  if (comparison.carIds.includes(carId)) {
+    await removeFromComparison(carId);
+    return { selected: false };
   }
 
-  return { selected: true };
+  const result = await addToComparison(carId);
+  return { selected: result.ok, reason: result.reason };
 }
 
-export function clearComparison(): void {
-  localStorage.removeItem(COMPARISON_KEY);
+export async function clearComparison(): Promise<void> {
+  const comparison = await fetchComparison();
+  const headers = getAuthHeaders();
+  if (!comparison || !headers) return;
+
+  await Promise.all(
+    comparison.carIds.map((carId) =>
+      fetch(`${BASE}/comparisons/${comparison.id}/cars/${carId}`, {
+        method: "DELETE",
+        headers,
+      }),
+    ),
+  );
 }

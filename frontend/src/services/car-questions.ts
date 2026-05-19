@@ -8,70 +8,81 @@ export interface PublicCarQuestion {
   answer?: string;
   answeredAt?: string;
 }
+const BASE = 'http://localhost:3333';
 
-const CAR_QUESTIONS_KEY = "autopoint_car_questions";
-
-function getAllQuestions(): PublicCarQuestion[] {
-  const stored = localStorage.getItem(CAR_QUESTIONS_KEY);
-
-  if (!stored) return [];
-
-  try {
-    const parsed = JSON.parse(stored);
-    return Array.isArray(parsed) ? parsed : [];
-  } catch {
-    return [];
-  }
+function parseIdToNumber(id: string | null | undefined): number | string | undefined {
+  if (!id) return undefined;
+  return /^[0-9]+$/.test(id) ? Number(id) : id;
 }
 
-function saveAllQuestions(questions: PublicCarQuestion[]): void {
-  localStorage.setItem(CAR_QUESTIONS_KEY, JSON.stringify(questions));
+export async function getQuestionsByCarId(carId: string): Promise<PublicCarQuestion[]> {
+  const res = await fetch(`${BASE}/questions/car/${encodeURIComponent(carId)}`);
+  if (!res.ok) return [];
+  const data = await res.json();
+
+  return Array.isArray(data)
+    ? data.map((q: any) => ({
+        id: q.id,
+        carId: q.carId,
+        buyerId: parseIdToNumber(q.buyerId) as number,
+        sellerId: parseIdToNumber(q.sellerId) as number,
+        question: q.question,
+        answer: q.answer ?? undefined,
+        createdAt: q.createdAt,
+        answeredAt: q.answeredAt ?? undefined,
+      }))
+    : [];
 }
 
-export function getQuestionsByCarId(carId: string): PublicCarQuestion[] {
-  return getAllQuestions()
-    .filter((question) => question.carId === carId)
-    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-}
-
-export function addPublicQuestion(input: {
+export async function addPublicQuestion(input: {
   carId: string;
-  buyerId: number;
-  sellerId: number;
+  buyerId: number | string;
+  sellerId: number | string;
   question: string;
-}): PublicCarQuestion {
-  const questions = getAllQuestions();
-  const newQuestion: PublicCarQuestion = {
-    id: `question_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+}): Promise<PublicCarQuestion | null> {
+  const body = {
     carId: input.carId,
-    buyerId: input.buyerId,
-    sellerId: input.sellerId,
-    question: input.question.trim(),
-    createdAt: new Date().toISOString(),
+    buyerId: String(input.buyerId),
+    sellerId: String(input.sellerId),
+    question: input.question,
   };
 
-  questions.push(newQuestion);
-  saveAllQuestions(questions);
-  return newQuestion;
+  const res = await fetch(`${BASE}/questions`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+
+  if (!res.ok) return null;
+  const q = await res.json();
+
+  return {
+    id: q.id,
+    carId: q.carId,
+    buyerId: parseIdToNumber(q.buyerId) as number,
+    sellerId: parseIdToNumber(q.sellerId) as number,
+    question: q.question,
+    answer: q.answer ?? undefined,
+    createdAt: q.createdAt,
+    answeredAt: q.answeredAt ?? undefined,
+  };
 }
 
-export function answerPublicQuestion(input: {
+export async function answerPublicQuestion(input: {
   questionId: string;
-  sellerId: number;
+  sellerId: number | string;
   answer: string;
-}): boolean {
-  const questions = getAllQuestions();
-  const index = questions.findIndex((question) => question.id === input.questionId);
-
-  if (index === -1) return false;
-  if (questions[index].sellerId !== input.sellerId) return false;
-
-  questions[index] = {
-    ...questions[index],
-    answer: input.answer.trim(),
-    answeredAt: new Date().toISOString(),
+}): Promise<boolean> {
+  const body = {
+    sellerId: String(input.sellerId),
+    answer: input.answer,
   };
 
-  saveAllQuestions(questions);
-  return true;
+  const res = await fetch(`${BASE}/questions/${encodeURIComponent(input.questionId)}/answer`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+
+  return res.ok;
 }

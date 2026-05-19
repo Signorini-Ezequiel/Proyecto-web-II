@@ -78,7 +78,15 @@ export function renderPublishPage(container: HTMLElement, isEditMode = false): v
     return;
   }
 
-  let uploadedPhotos: string[] = []; // Cambiar a string[] para base64
+  interface PhotoItem {
+    preview: string;
+    file?: File;
+    url?: string;
+    status: 'pending' | 'uploading' | 'uploaded' | 'error';
+    error?: string;
+  }
+
+  const photoItems: PhotoItem[] = [];
   const errors: Record<string, string> = {};
 
   const urlParams = new URLSearchParams(window.location.search);
@@ -481,26 +489,103 @@ export function renderPublishPage(container: HTMLElement, isEditMode = false): v
   });
 
   function handleFileSelection(files: File[]): void {
-    const imageFiles = files.filter((file) => file.type.startsWith("image/")).slice(0, 10 - uploadedPhotos.length);
-    
+    const imageFiles = files.filter((file) => file.type.startsWith("image/")).slice(0, 10 - photoItems.length);
+    const startIndex = photoItems.length;
+
     imageFiles.forEach((file) => {
+      const photoItem: PhotoItem = {
+        preview: '',
+        file,
+        status: 'pending',
+      };
+      photoItems.push(photoItem);
+    });
+
+    photoItems.slice(startIndex).forEach((item) => {
       const reader = new FileReader();
       reader.onload = (e) => {
-        const base64 = e.target?.result as string;
-        uploadedPhotos.push(base64);
-        photoCount.textContent = uploadedPhotos.length.toString();
+        item.preview = e.target?.result as string;
+        updatePhotoCount();
         updatePhotosPreview();
       };
-      reader.readAsDataURL(file);
+      reader.readAsDataURL(item.file as File);
     });
+
+    updatePhotoCount();
+    updatePhotosPreview();
+
+    if (imageFiles.length > 0) {
+      void uploadSelectedPhotos(photoItems.slice(startIndex));
+    }
+  }
+
+  async function uploadSelectedPhotos(items: PhotoItem[]): Promise<void> {
+    if (items.length === 0) return;
+
+    items.forEach((item) => {
+      item.status = 'uploading';
+    });
+    updatePhotosPreview();
+
+    const formData = new FormData();
+    items.forEach((item) => {
+      if (item.file) {
+        formData.append('images', item.file);
+      }
+    });
+
+    try {
+      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/api/uploads/images`, {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(errorText || 'Error al subir las imágenes');
+      }
+
+      const result = await response.json();
+      const uploadedUrls: string[] = result.images || [];
+
+      uploadedUrls.forEach((url, index) => {
+        items[index].url = url;
+        items[index].preview = url;
+        items[index].status = 'uploaded';
+      });
+    } catch (error) {
+      items.forEach((item) => {
+        item.status = 'error';
+        item.error = (error as Error)?.message || 'Error en la carga';
+      });
+      console.error('Error al subir las imágenes:', error);
+      showToast('Ocurrió un error al subir las imágenes. Intenta nuevamente.', 'error');
+    } finally {
+      updatePhotosPreview();
+    }
+  }
+
+  function updatePhotoCount(): void {
+    photoCount.textContent = photoItems.length.toString();
+  }
+
+  function getUploadedPhotoUrls(): string[] {
+    return photoItems.filter((item) => item.url).map((item) => item.url!) ;
   }
 
   function updatePhotosPreview(): void {
-    photosPreview.innerHTML = uploadedPhotos
-      .map((base64, index) => {
+    photosPreview.innerHTML = photoItems
+      .map((item, index) => {
+        const statusOverlay = item.status === 'uploading'
+          ? '<div class="absolute inset-0 flex items-center justify-center bg-black/50 text-white text-sm font-semibold">Subiendo...</div>'
+          : item.status === 'error'
+          ? `<div class="absolute inset-0 flex items-center justify-center bg-red-600/75 text-white text-sm font-semibold">Error</div>`
+          : '';
+
         return `
           <div class="group relative aspect-square overflow-hidden rounded-lg bg-slate-100">
-            <img src="${base64}" alt="Preview ${index + 1}" class="h-full w-full object-cover">
+            <img src="${item.preview}" alt="Preview ${index + 1}" class="h-full w-full object-cover">
+            ${statusOverlay}
             <button type="button" class="remove-photo absolute inset-0 flex items-center justify-center bg-black/0 opacity-0 transition-opacity transition-colors group-hover:bg-black/50 group-hover:opacity-100" data-index="${index}">
               <span class="text-2xl font-bold text-white">×</span>
             </button>
@@ -515,20 +600,18 @@ export function renderPublishPage(container: HTMLElement, isEditMode = false): v
     photosPreview.querySelectorAll(".remove-photo").forEach((button) => {
       button.addEventListener("click", (event) => {
         event.preventDefault();
-        const index = parseInt(
-          (event.target as HTMLElement).closest(".remove-photo")?.getAttribute("data-index") || "-1",
-          10
-        );
+        const target = event.currentTarget as HTMLElement;
+        const index = parseInt(target.getAttribute("data-index") || "-1", 10);
         if (index < 0) return;
-        uploadedPhotos.splice(index, 1);
-        photoCount.textContent = uploadedPhotos.length.toString();
+        photoItems.splice(index, 1);
+        updatePhotoCount();
         updatePhotosPreview();
       });
     });
   }
 
   const form = document.getElementById("publish-form") as HTMLFormElement;
-  form.addEventListener("submit", (event) => {
+  form.addEventListener("submit", async (event) => {
     event.preventDefault();
 
     Object.keys(errors).forEach((fieldId) => clearError(fieldId));
@@ -595,6 +678,18 @@ export function renderPublishPage(container: HTMLElement, isEditMode = false): v
     }
 
     const features = parseFeatures((document.getElementById("features") as HTMLTextAreaElement).value);
+    const imageUrls = getUploadedPhotoUrls();
+
+    if (photoItems.some((item) => item.status === 'uploading')) {
+      showToast("Espera a que las imágenes terminen de subir antes de enviar.", "error");
+      return;
+    }
+
+    if (photoItems.some((item) => item.status === 'error')) {
+      showToast("Hay un error en una o más imágenes. Elimina la imagen afectada e intenta nuevamente.", "error");
+      return;
+    }
+
     const formData = {
       make: makeInput.value,
       model: (document.getElementById("model") as HTMLInputElement).value.trim(),
@@ -606,7 +701,7 @@ export function renderPublishPage(container: HTMLElement, isEditMode = false): v
       color: (document.getElementById("color") as HTMLInputElement).value.trim(),
       location: (document.getElementById("location") as HTMLInputElement).value.trim(),
       description: (document.getElementById("description") as HTMLTextAreaElement).value.trim(),
-      images: uploadedPhotos.length > 0 ? uploadedPhotos : existingCar?.images || [],
+      images: imageUrls.length > 0 ? imageUrls : existingCar?.images || [],
       sellerId: user.id,
       specs: {
         engine: (document.getElementById("engine") as HTMLInputElement).value.trim(),
@@ -623,14 +718,14 @@ export function renderPublishPage(container: HTMLElement, isEditMode = false): v
 
     try {
       if (isEditMode && existingCar) {
-        const success = updatePublishedCar(existingCar.id, formData);
+        const success = await updatePublishedCar(existingCar.id, formData);
         if (!success) {
           showToast("Error al actualizar el vehículo", "error");
           return;
         }
         showToast("Vehículo actualizado exitosamente", "success");
       } else {
-        savePublishedCar(formData);
+        await savePublishedCar(formData);
         showToast("Vehículo publicado exitosamente", "success");
       }
 
@@ -667,8 +762,10 @@ export function renderPublishPage(container: HTMLElement, isEditMode = false): v
       (document.getElementById("features") as HTMLTextAreaElement).value = specs.features.join(", ");
 
       if (existingCar!.images.length > 0) {
-        uploadedPhotos = [...existingCar!.images];
-        photoCount.textContent = existingCar!.images.length.toString();
+        photoItems.push(
+          ...existingCar!.images.map((image) => ({ preview: image, url: image, status: 'uploaded' as const })),
+        );
+        photoCount.textContent = photoItems.length.toString();
         updatePhotosPreview();
       }
     }, 100);

@@ -1,20 +1,18 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsInt, IsString, Min, MinLength } from 'class-validator';
+import { IsString, MinLength } from 'class-validator';
 
 export class CreateCarQuestionDto {
   @ApiProperty({ example: '1' })
   @IsString()
   carId: string;
 
-  @ApiProperty({ example: 1 })
-  @IsInt()
-  @Min(1)
-  buyerId: number;
+  @ApiProperty({ example: 'buyer_uuid_or_id' })
+  @IsString()
+  buyerId: string;
 
-  @ApiProperty({ example: 2 })
-  @IsInt()
-  @Min(1)
-  sellerId: number;
+  @ApiProperty({ example: 'seller_uuid_or_id' })
+  @IsString()
+  sellerId: string;
 
   @ApiProperty({ example: 'Tiene service oficial al dia?' })
   @IsString()

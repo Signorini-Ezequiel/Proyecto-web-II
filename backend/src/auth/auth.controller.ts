@@ -12,6 +12,8 @@ import {
   ApiBearerAuth,
   ApiCreatedResponse,
   ApiOkResponse,
+  ApiOperation,
+  ApiResponse,
   ApiTags,
 } from '@nestjs/swagger';
 import { CreateUserDto } from '../users/dto/create-user.dto';
@@ -34,22 +36,26 @@ export class AuthController {
 
   @Post('register')
   @HttpCode(HttpStatus.CREATED)
-  @ApiCreatedResponse({ type: AuthResponseDto })
+  @ApiOperation({ summary: 'Registra un nuevo usuario y devuelve credenciales.' })
+  @ApiCreatedResponse({ type: AuthResponseDto, description: 'Usuario registrado con éxito.' })
   register(@Body() dto: CreateUserDto): Promise<AuthResult> {
     return this.authService.register(dto);
   }
 
   @Post('login')
   @HttpCode(HttpStatus.OK)
-  @ApiOkResponse({ type: AuthResponseDto })
+  @ApiOperation({ summary: 'Inicia sesión y devuelve tokens JWT.' })
+  @ApiOkResponse({ type: AuthResponseDto, description: 'Inicio de sesión exitoso.' })
   login(@Body() dto: LoginDto): Promise<AuthResult> {
     return this.authService.login(dto);
   }
 
   @Get('profile')
   @UseGuards(JwtAuthGuard)
-  @ApiBearerAuth()
+  @ApiBearerAuth('JWT-auth')
+  @ApiOperation({ summary: 'Obtiene perfil del usuario autenticado.' })
   @ApiOkResponse({ description: 'Devuelve el usuario autenticado.' })
+  @ApiResponse({ status: 401, description: 'Token JWT inválido o ausente.' })
   profile(@Req() request: AuthenticatedRequest): PublicUser {
     return this.usersService.findById(request.user.sub);
   }

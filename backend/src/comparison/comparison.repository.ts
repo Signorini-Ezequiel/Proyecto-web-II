@@ -1,20 +1,67 @@
 import { Injectable } from '@nestjs/common';
+import { PrismaService } from '../prisma/prisma.service';
 
 @Injectable()
 export class ComparisonRepository {
-  private readonly comparisonByUser = new Map<number, string[]>();
+  constructor(private readonly prisma: PrismaService) {}
 
-  getIds(userId: number): string[] {
-    return [...(this.comparisonByUser.get(userId) ?? [])];
+  async findByUserId(userId: string) {
+    return this.prisma.comparison.findUnique({
+      where: { userId },
+      include: { cars: true },
+    });
   }
 
-  save(userId: number, ids: string[]): string[] {
-    const uniqueIds = [...new Set(ids)];
-    this.comparisonByUser.set(userId, uniqueIds);
-    return this.getIds(userId);
+  async findById(id: string) {
+    return this.prisma.comparison.findUnique({
+      where: { id },
+      include: { cars: true },
+    });
   }
 
-  clear(userId: number): void {
-    this.comparisonByUser.delete(userId);
+  async create(userId: string): Promise<{ id: string; carIds: string[] }> {
+    const comparison = await this.prisma.comparison.create({
+      data: { userId },
+      include: { cars: true },
+    });
+
+    return {
+      id: comparison.id,
+      carIds: comparison.cars.map((item) => item.carId),
+    };
+  }
+
+  async addCar(comparisonId: string, carId: string): Promise<{ id: string; carIds: string[] }> {
+    await this.prisma.comparisonCar.create({
+      data: {
+        comparisonId,
+        carId,
+      },
+    });
+
+    const comparison = await this.findById(comparisonId);
+
+    return {
+      id: comparison!.id,
+      carIds: comparison!.cars.map((item) => item.carId),
+    };
+  }
+
+  async removeCar(comparisonId: string, carId: string): Promise<{ id: string; carIds: string[] }> {
+    await this.prisma.comparisonCar.delete({
+      where: {
+        comparisonId_carId: {
+          comparisonId,
+          carId,
+        },
+      },
+    });
+
+    const comparison = await this.findById(comparisonId);
+
+    return {
+      id: comparison!.id,
+      carIds: comparison?.cars.map((item) => item.carId) ?? [],
+    };
   }
 }

@@ -1,8 +1,8 @@
 export interface PublicCarQuestion {
   id: string;
   carId: string;
-  buyerId: number;
-  sellerId: number;
+  buyerId: string;
+  sellerId: string | null;
   question: string;
   createdAt: string;
   answer?: string;

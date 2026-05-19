@@ -15,6 +15,7 @@ export type SessionUser = {
   email: string;
   role: "buyer" | "seller";
   avatarUrl: string | null;
+  token?: string;
 };
 
 export type LoginResult =

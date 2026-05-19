@@ -1,5 +1,7 @@
 import { type Car, CARS } from "../data/cars";
 
+const BACKEND_API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
+
 export interface PublishedCar extends Omit<Car, 'specs'> {
   sellerId: number;
   publishedAt: string;
@@ -61,27 +63,49 @@ export function getPublishedCars(): PublishedCar[] {
   }
 }
 
-export function savePublishedCar(car: Omit<PublishedCar, 'id' | 'publishedAt'>): PublishedCar {
-  const publishedCars = getPublishedCars();
-  const newCar: PublishedCar = {
-    ...car,
-    id: `published_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-    publishedAt: new Date().toISOString(),
-  };
+export async function savePublishedCar(car: Omit<PublishedCar, 'id' | 'publishedAt'>): Promise<PublishedCar> {
+  const response = await fetch(`${BACKEND_API_URL}/published-cars`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(car),
+  });
 
-  console.log("Saving published car with sellerId:", car.sellerId, "newCar:", newCar);
+  if (!response.ok) {
+    throw new Error('Error al crear la publicación en el servidor.');
+  }
+
+  const newCar: PublishedCar = await response.json();
+  const publishedCars = getPublishedCars();
   publishedCars.push(newCar);
   localStorage.setItem(PUBLISHED_CARS_KEY, JSON.stringify(publishedCars));
   return newCar;
 }
 
-export function updatePublishedCar(carId: string, updates: Partial<PublishedCar>): boolean {
+export async function updatePublishedCar(carId: string, updates: Partial<PublishedCar>): Promise<boolean> {
+  const response = await fetch(`${BACKEND_API_URL}/published-cars/${encodeURIComponent(carId)}`, {
+    method: 'PATCH',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(updates),
+  });
+
+  if (!response.ok) {
+    return false;
+  }
+
+  const updatedCar: PublishedCar = await response.json();
   const publishedCars = getPublishedCars();
   const index = publishedCars.findIndex(car => car.id === carId);
 
-  if (index === -1) return false;
+  if (index !== -1) {
+    publishedCars[index] = { ...publishedCars[index], ...updatedCar };
+  } else {
+    publishedCars.push(updatedCar);
+  }
 
-  publishedCars[index] = { ...publishedCars[index], ...updates };
   localStorage.setItem(PUBLISHED_CARS_KEY, JSON.stringify(publishedCars));
   return true;
 }

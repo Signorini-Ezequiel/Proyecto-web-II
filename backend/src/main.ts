@@ -1,13 +1,14 @@
 import { NestFactory } from '@nestjs/core';
-import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { ValidationPipe } from '@nestjs/common';
 import { AppModule } from './app.module';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter';
+import { setupSwagger } from './config/swagger.config';
 
 async function bootstrap(): Promise<void> {
   const app = await NestFactory.create(AppModule);
 
   app.enableCors();
+  app.setGlobalPrefix('api');
   app.useGlobalFilters(new HttpExceptionFilter());
   app.useGlobalPipes(
     new ValidationPipe({
@@ -17,17 +18,10 @@ async function bootstrap(): Promise<void> {
     }),
   );
 
-  const swaggerConfig = new DocumentBuilder()
-    .setTitle('AutoPoint API')
-    .setDescription('Backend API para AutoPoint')
-    .setVersion('1.0')
-    .addBearerAuth()
-    .build();
-
-  const swaggerDocument = SwaggerModule.createDocument(app, swaggerConfig);
-  SwaggerModule.setup('api', app, swaggerDocument);
+  setupSwagger(app);
 
   const port = Number(process.env.PORT) || 3000;
   await app.listen(port);
+  console.log(`🚀 Swagger disponible en http://localhost:${port}/api/docs`);
 }
 void bootstrap();

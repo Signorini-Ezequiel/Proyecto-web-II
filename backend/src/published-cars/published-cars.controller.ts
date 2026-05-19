@@ -21,42 +21,42 @@ export class PublishedCarsController {
 
   @Get()
   @ApiOkResponse({ description: 'Lista autos publicados.' })
-  findAll(): PublishedCar[] {
+  async findAll(): Promise<PublishedCar[]> {
     return this.publishedCarsService.findAll();
   }
 
   @Get('seller/:sellerId')
   @ApiOkResponse({ description: 'Lista publicaciones por vendedor.' })
-  findBySellerId(
+  async findBySellerId(
     @Param('sellerId', ParseIntPipe) sellerId: number,
-  ): PublishedCar[] {
+  ): Promise<PublishedCar[]> {
     return this.publishedCarsService.findBySellerId(sellerId);
   }
 
   @Get(':id')
   @ApiOkResponse({ description: 'Obtiene una publicacion por id.' })
-  findById(@Param('id') id: string): PublishedCar {
+  async findById(@Param('id') id: string): Promise<PublishedCar> {
     return this.publishedCarsService.findById(id);
   }
 
   @Post()
   @ApiCreatedResponse({ description: 'Crea una publicacion.' })
-  create(@Body() dto: CreatePublishedCarDto): PublishedCar {
+  async create(@Body() dto: CreatePublishedCarDto): Promise<PublishedCar> {
     return this.publishedCarsService.create(dto);
   }
 
   @Patch(':id')
   @ApiOkResponse({ description: 'Actualiza una publicacion.' })
-  update(
+  async update(
     @Param('id') id: string,
     @Body() dto: UpdatePublishedCarDto,
-  ): PublishedCar {
+  ): Promise<PublishedCar> {
     return this.publishedCarsService.update(id, dto);
   }
 
   @Delete(':id')
   @ApiOkResponse({ description: 'Elimina una publicacion.' })
-  delete(@Param('id') id: string): { ok: true } {
+  async delete(@Param('id') id: string): Promise<{ ok: true }> {
     return this.publishedCarsService.delete(id);
   }
 }

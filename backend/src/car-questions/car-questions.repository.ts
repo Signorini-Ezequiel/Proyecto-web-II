@@ -1,60 +1,76 @@
-import {
-  ForbiddenException,
-  Injectable,
-  NotFoundException,
-} from '@nestjs/common';
+import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import { PrismaService } from '../prisma/prisma.service';
 import { AnswerCarQuestionDto } from './dto/answer-car-question.dto';
 import { CreateCarQuestionDto } from './dto/create-car-question.dto';
 import { PublicCarQuestion } from './car-question.entity';
 
 @Injectable()
 export class CarQuestionsRepository {
-  private readonly questions = new Map<string, PublicCarQuestion>();
+  constructor(private readonly prisma: PrismaService) {}
 
-  findByCarId(carId: string): PublicCarQuestion[] {
-    return [...this.questions.values()]
-      .filter((question) => question.carId === carId)
-      .sort((a, b) => {
-        return (
-          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-        );
-      });
+  async findByCarId(carId: string): Promise<PublicCarQuestion[]> {
+    const items = await this.prisma.question.findMany({
+      where: { carId },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    return items.map((it) => ({
+      id: it.id,
+      carId: it.carId,
+      buyerId: it.buyerId,
+      sellerId: it.sellerId,
+      question: it.question,
+      answer: it.answer ?? undefined,
+      createdAt: it.createdAt.toISOString(),
+      answeredAt: it.updatedAt ? it.updatedAt.toISOString() : undefined,
+    }));
   }
 
-  create(dto: CreateCarQuestionDto): PublicCarQuestion {
-    const question: PublicCarQuestion = {
-      id: `question_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
-      carId: dto.carId,
-      buyerId: dto.buyerId,
-      sellerId: dto.sellerId,
-      question: dto.question.trim(),
-      createdAt: new Date().toISOString(),
-    };
+  async create(dto: CreateCarQuestionDto): Promise<PublicCarQuestion> {
+    const created = await this.prisma.question.create({
+      data: {
+        carId: dto.carId,
+        buyerId: dto.buyerId,
+        sellerId: dto.sellerId,
+        question: dto.question.trim(),
+      },
+    });
 
-    this.questions.set(question.id, question);
-    return question;
+    return {
+      id: created.id,
+      carId: created.carId,
+      buyerId: created.buyerId,
+      sellerId: created.sellerId,
+      question: created.question,
+      answer: created.answer ?? undefined,
+      createdAt: created.createdAt.toISOString(),
+      answeredAt: created.updatedAt ? created.updatedAt.toISOString() : undefined,
+    };
   }
 
-  answer(questionId: string, dto: AnswerCarQuestionDto): PublicCarQuestion {
-    const question = this.questions.get(questionId);
+  async answer(questionId: string, dto: AnswerCarQuestionDto): Promise<PublicCarQuestion> {
+    const existing = await this.prisma.question.findUnique({ where: { id: questionId } });
 
-    if (!question) {
-      throw new NotFoundException('Pregunta no encontrada.');
+    if (!existing) throw new NotFoundException('Pregunta no encontrada.');
+
+    if (existing.sellerId !== dto.sellerId) {
+      throw new ForbiddenException('Solo el vendedor de la publicacion puede responder.');
     }
 
-    if (question.sellerId !== dto.sellerId) {
-      throw new ForbiddenException(
-        'Solo el vendedor de la publicacion puede responder.',
-      );
-    }
+    const updated = await this.prisma.question.update({
+      where: { id: questionId },
+      data: { answer: dto.answer.trim() },
+    });
 
-    const answeredQuestion: PublicCarQuestion = {
-      ...question,
-      answer: dto.answer.trim(),
-      answeredAt: new Date().toISOString(),
+    return {
+      id: updated.id,
+      carId: updated.carId,
+      buyerId: updated.buyerId,
+      sellerId: updated.sellerId,
+      question: updated.question,
+      answer: updated.answer ?? undefined,
+      createdAt: updated.createdAt.toISOString(),
+      answeredAt: updated.updatedAt ? updated.updatedAt.toISOString() : undefined,
     };
-
-    this.questions.set(questionId, answeredQuestion);
-    return answeredQuestion;
   }
 }

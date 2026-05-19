@@ -1,13 +1,19 @@
-import type {
-  LoginResult,
-  MockUser,
-  RegisterResult,
-  SessionUser,
-  UserRole,
-} from "../types/auth";
+import type { LoginResult, RegisterResult, SessionUser, UserRole } from "../types/auth";
 
 const SESSION_KEY = "auto_market_session";
-const USERS_KEY = "auto_market_users";
+const BASE = "http://localhost:3000";
+
+type AuthResponse = {
+  ok: true;
+  user: {
+    id: number;
+    name: string;
+    email: string;
+    role: UserRole;
+    avatarUrl: string | null;
+  };
+  accessToken: string;
+};
 
 type UpdateProfileInput = {
   name: string;
@@ -18,72 +24,8 @@ type UpdateResult =
   | { ok: true; user: SessionUser }
   | { ok: false; message: string };
 
-const defaultUsers: MockUser[] = [
-  {
-    id: 1,
-    name: "Bruno Lopez",
-    email: "buyer@autopoint.com",
-    password: "1234",
-    role: "buyer",
-    avatarUrl: null,
-  },
-  {
-    id: 2,
-    name: "Lucia Fernandez",
-    email: "seller@autopoint.com",
-    password: "1234",
-    role: "seller",
-    avatarUrl: null,
-  },
-];
-
-function saveUsers(users: MockUser[]): void {
-  localStorage.setItem(USERS_KEY, JSON.stringify(users));
-}
-
 function saveSessionUser(user: SessionUser): void {
   localStorage.setItem(SESSION_KEY, JSON.stringify(user));
-}
-
-function normalizeUser(user: MockUser): MockUser {
-  return {
-    ...user,
-    avatarUrl: user.avatarUrl ?? null,
-  };
-}
-
-function getUsers(): MockUser[] {
-  const raw = localStorage.getItem(USERS_KEY);
-
-  if (!raw) {
-    saveUsers(defaultUsers);
-    return defaultUsers;
-  }
-
-  try {
-    const parsed = JSON.parse(raw) as MockUser[];
-    if (!Array.isArray(parsed) || parsed.length === 0) {
-      saveUsers(defaultUsers);
-      return defaultUsers;
-    }
-
-    const normalizedUsers = parsed.map(normalizeUser);
-    saveUsers(normalizedUsers);
-    return normalizedUsers;
-  } catch {
-    saveUsers(defaultUsers);
-    return defaultUsers;
-  }
-}
-
-function buildSessionUser(user: MockUser): SessionUser {
-  return {
-    id: user.id,
-    name: user.name,
-    email: user.email,
-    role: user.role,
-    avatarUrl: user.avatarUrl,
-  };
 }
 
 function getPasswordValidationMessage(password: string): string | null {
@@ -102,54 +44,53 @@ function getPasswordValidationMessage(password: string): string | null {
   return null;
 }
 
-export function getUserById(id: number): MockUser | null {
-  const users = getUsers();
-  return users.find((user) => user.id === id) || null;
-}
-
-export function login(email: string, password: string): LoginResult {
-  const users = getUsers();
-  const normalizedEmail = email.trim().toLowerCase();
-
-  const user = users.find(
-    (item) =>
-      item.email.toLowerCase() === normalizedEmail && item.password === password
-  );
-
-  if (!user) {
-    return {
-      ok: false,
-      message: "Email o contrasena incorrectos.",
-    };
-  }
-
-  const sessionUser = buildSessionUser(user);
-  saveSessionUser(sessionUser);
-
+function buildSessionUser(user: AuthResponse["user"], token: string): SessionUser {
   return {
-    ok: true,
-    user: sessionUser,
+    id: user.id,
+    name: user.name,
+    email: user.email,
+    role: user.role,
+    avatarUrl: user.avatarUrl,
+    token,
   };
 }
 
-export function register(
+export async function login(email: string, password: string): Promise<LoginResult> {
+  try {
+    const response = await fetch(`${BASE}/auth/login`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, password }),
+    });
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => null);
+      return {
+        ok: false,
+        message: error?.message ?? "Email o contrasena incorrectos.",
+      };
+    }
+
+    const data = (await response.json()) as AuthResponse;
+    const sessionUser = buildSessionUser(data.user, data.accessToken);
+    saveSessionUser(sessionUser);
+
+    return { ok: true, user: sessionUser };
+  } catch {
+    return {
+      ok: false,
+      message: "No se pudo conectar con el servidor. Intenta de nuevo.",
+    };
+  }
+}
+
+export async function register(
   name: string,
   email: string,
   password: string,
   role: UserRole,
-  avatarUrl: string | null = null
-): RegisterResult {
-  const users = getUsers();
-  const normalizedEmail = email.trim().toLowerCase();
-  const normalizedName = name.trim();
-
-  if (!normalizedName || !normalizedEmail || !password) {
-    return {
-      ok: false,
-      message: "Completa todos los campos obligatorios.",
-    };
-  }
-
+  avatarUrl: string | null = null,
+): Promise<RegisterResult> {
   const passwordValidationMessage = getPasswordValidationMessage(password);
   if (passwordValidationMessage) {
     return {
@@ -158,142 +99,59 @@ export function register(
     };
   }
 
-  const exists = users.some(
-    (item) => item.email.toLowerCase() === normalizedEmail
-  );
+  try {
+    const response = await fetch(`${BASE}/auth/register`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        name,
+        email,
+        password,
+        role,
+        avatar: avatarUrl || undefined,
+      }),
+    });
 
-  if (exists) {
+    if (!response.ok) {
+      const error = await response.json().catch(() => null);
+      return {
+        ok: false,
+        message: error?.message ?? "No se pudo crear la cuenta.",
+      };
+    }
+
+    const data = (await response.json()) as AuthResponse;
+    const sessionUser = buildSessionUser(data.user, data.accessToken);
+    saveSessionUser(sessionUser);
+
+    return { ok: true, user: sessionUser };
+  } catch {
     return {
       ok: false,
-      message: "Ya existe una cuenta registrada con ese email.",
+      message: "No se pudo conectar con el servidor. Intenta de nuevo.",
     };
   }
-
-  const newUser: MockUser = {
-    id: Date.now(),
-    name: normalizedName,
-    email: normalizedEmail,
-    password,
-    role,
-    avatarUrl,
-  };
-
-  const updatedUsers = [...users, newUser];
-  saveUsers(updatedUsers);
-
-  const sessionUser = buildSessionUser(newUser);
-  saveSessionUser(sessionUser);
-
-  return {
-    ok: true,
-    user: sessionUser,
-  };
 }
 
-export function updateProfile(
+export async function updateProfile(
   userId: number,
-  input: UpdateProfileInput
-): UpdateResult {
-  const users = getUsers();
-  const normalizedName = input.name.trim();
-
-  if (!normalizedName) {
-    return {
-      ok: false,
-      message: "El nombre de usuario no puede estar vacio.",
-    };
-  }
-
-  const userIndex = users.findIndex((user) => user.id === userId);
-
-  if (userIndex === -1) {
-    return {
-      ok: false,
-      message: "No encontramos tu perfil.",
-    };
-  }
-
-  const updatedUser: MockUser = {
-    ...users[userIndex],
-    name: normalizedName,
-    avatarUrl: input.avatarUrl,
-  };
-
-  const updatedUsers = [...users];
-  updatedUsers[userIndex] = updatedUser;
-  saveUsers(updatedUsers);
-
-  const sessionUser = buildSessionUser(updatedUser);
-  saveSessionUser(sessionUser);
-
+  input: UpdateProfileInput,
+): Promise<UpdateResult> {
   return {
-    ok: true,
-    user: sessionUser,
+    ok: false,
+    message: "Esta operacion no esta disponible en esta version.",
   };
 }
 
-export function updatePassword(
+export async function updatePassword(
   userId: number,
   currentPassword: string,
   newPassword: string,
-  confirmPassword: string
-): UpdateResult {
-  const users = getUsers();
-  const userIndex = users.findIndex((user) => user.id === userId);
-
-  if (userIndex === -1) {
-    return {
-      ok: false,
-      message: "No encontramos tu perfil.",
-    };
-  }
-
-  const user = users[userIndex];
-
-  if (user.password !== currentPassword) {
-    return {
-      ok: false,
-      message: "La contrasena actual no coincide.",
-    };
-  }
-
-  if (newPassword !== confirmPassword) {
-    return {
-      ok: false,
-      message: "La nueva contrasena y la confirmacion no coinciden.",
-    };
-  }
-
-  if (newPassword === currentPassword) {
-    return {
-      ok: false,
-      message: "Elige una contrasena distinta a la actual.",
-    };
-  }
-
-  const passwordValidationMessage = getPasswordValidationMessage(newPassword);
-  if (passwordValidationMessage) {
-    return {
-      ok: false,
-      message: passwordValidationMessage,
-    };
-  }
-
-  const updatedUser: MockUser = {
-    ...user,
-    password: newPassword,
-  };
-
-  const updatedUsers = [...users];
-  updatedUsers[userIndex] = updatedUser;
-  saveUsers(updatedUsers);
-
-  const sessionUser = buildSessionUser(updatedUser);
-  saveSessionUser(sessionUser);
-
+  confirmPassword: string,
+): Promise<UpdateResult> {
   return {
-    ok: true,
-    user: sessionUser,
+    ok: false,
+    message: "Esta operacion no esta disponible en esta version.",
   };
 }
 
@@ -318,6 +176,10 @@ export function getSessionUser(): SessionUser | null {
     localStorage.removeItem(SESSION_KEY);
     return null;
   }
+}
+
+export function getSessionToken(): string | null {
+  return getSessionUser()?.token ?? null;
 }
 
 export function isAuthenticated(): boolean {

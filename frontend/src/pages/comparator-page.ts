@@ -15,10 +15,15 @@ function isCar(car: Car | null): car is Car {
   return car !== null;
 }
 
-export function renderComparatorPage(app: HTMLDivElement): void {
+export async function renderComparatorPage(app: HTMLDivElement): Promise<void> {
   const user = getSessionUser();
 
-  if (user?.role === "seller") {
+  if (!user) {
+    navigateTo(ROUTES.landing);
+    return;
+  }
+
+  if (user.role === "seller") {
     navigateTo(ROUTES.home);
     return;
   }
@@ -28,7 +33,7 @@ export function renderComparatorPage(app: HTMLDivElement): void {
   const favoriteCars = favoriteIds
     .map((id) => allCars.find((car) => car.id === id) || null)
     .filter(isCar);
-  const selectedIds = getComparisonIds();
+  const selectedIds = await getComparisonIds();
   const selectedCars = selectedIds
     .map((id) => favoriteCars.find((car) => car.id === id) || null)
     .filter(isCar);
@@ -201,8 +206,8 @@ export function renderComparatorPage(app: HTMLDivElement): void {
   NavBarListeners();
 
   document.querySelectorAll<HTMLInputElement>(".comparator-checkbox").forEach((input) => {
-    input.addEventListener("change", () => {
-      const result = toggleComparison(input.value);
+    input.addEventListener("change", async () => {
+      const result = await toggleComparison(input.value);
 
       if (result.reason === "limit") {
         input.checked = false;
@@ -210,12 +215,12 @@ export function renderComparatorPage(app: HTMLDivElement): void {
         return;
       }
 
-      renderComparatorPage(app);
+      await renderComparatorPage(app);
     });
   });
 
-  document.querySelector<HTMLElement>("[data-comparator-clear]")?.addEventListener("click", () => {
-    clearComparison();
-    renderComparatorPage(app);
+  document.querySelector<HTMLElement>("[data-comparator-clear]")?.addEventListener("click", async () => {
+    await clearComparison();
+    await renderComparatorPage(app);
   });
 }

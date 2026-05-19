@@ -18,7 +18,7 @@ export function setCurrentCarId(id: string, isPublished: boolean = false) {
   sessionStorage.setItem("isPublished", isPublished.toString());
 }
 
-export function renderCarDetailPage(container: HTMLElement): void {
+export async function renderCarDetailPage(container: HTMLElement): Promise<void> {
   const carId = sessionStorage.getItem("currentCarId");
   const isPublishedStr = sessionStorage.getItem("isPublished");
   const isPublished = isPublishedStr === "true";
@@ -86,7 +86,7 @@ export function renderCarDetailPage(container: HTMLElement): void {
   const isSeller = user?.role === "seller";
   const aiCharacteristicsOpinion = generateDetailOpinion(car);
   const aiImageOpinion = generateImageAnalysisOpinion(car);
-  const publicQuestions = isPublished ? getQuestionsByCarId(car.id) : [];
+  const publicQuestions = isPublished ? await getQuestionsByCarId(car.id) : [];
 
   container.innerHTML = `
     <main class="min-h-screen app-bg text-slate-900 pt-20">
@@ -446,12 +446,12 @@ export function renderCarDetailPage(container: HTMLElement): void {
     alert("Funcionalidad de edición próximamente");
   });
 
-  document.querySelector("#add-to-comparator")?.addEventListener("click", () => {
+  document.querySelector("#add-to-comparator")?.addEventListener("click", async () => {
     if (!isFavorite(car.id)) {
       addFavorite(car.id);
     }
 
-    const result = addToComparison(car.id);
+    const result = await addToComparison(car.id);
 
     if (!result.ok && result.reason === "duplicate") {
       showToast("Ese vehículo ya está en el comparador", "error");
@@ -461,6 +461,11 @@ export function renderCarDetailPage(container: HTMLElement): void {
 
     if (!result.ok && result.reason === "limit") {
       showToast("Puedes comparar hasta 4 vehículos al mismo tiempo", "error");
+      return;
+    }
+
+    if (!result.ok) {
+      showToast("No se pudo agregar el vehículo al comparador", "error");
       return;
     }
 
@@ -480,7 +485,7 @@ export function renderCarDetailPage(container: HTMLElement): void {
     }
   });
 
-  document.getElementById("submit-public-question")?.addEventListener("click", () => {
+  document.getElementById("submit-public-question")?.addEventListener("click", async () => {
     if (!publishedCar || !user || user.role !== "buyer") return;
 
     const input = document.getElementById("public-question-input") as HTMLTextAreaElement | null;
@@ -491,19 +496,24 @@ export function renderCarDetailPage(container: HTMLElement): void {
       return;
     }
 
-    addPublicQuestion({
+    const created = await addPublicQuestion({
       carId: publishedCar.id,
       buyerId: user.id,
       sellerId: publishedCar.sellerId,
       question,
     });
 
+    if (!created) {
+      showToast("No se pudo publicar la pregunta", "error");
+      return;
+    }
+
     showToast("Tu pregunta se publicó correctamente", "success");
-    renderCarDetailPage(container);
+    await renderCarDetailPage(container);
   });
 
   document.querySelectorAll<HTMLElement>("[id^='reply-question_']").forEach((button) => {
-    button.addEventListener("click", () => {
+    button.addEventListener("click", async () => {
       if (!publishedCar || !user || user.role !== "seller" || !isOwner) return;
 
       const questionId = button.id.replace("reply-", "");
@@ -515,7 +525,7 @@ export function renderCarDetailPage(container: HTMLElement): void {
         return;
       }
 
-      const saved = answerPublicQuestion({
+      const saved = await answerPublicQuestion({
         questionId,
         sellerId: user.id,
         answer,
@@ -527,7 +537,7 @@ export function renderCarDetailPage(container: HTMLElement): void {
       }
 
       showToast("Respuesta publicada correctamente", "success");
-      renderCarDetailPage(container);
+      await renderCarDetailPage(container);
     });
   });
 }
