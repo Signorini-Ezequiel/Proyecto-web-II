@@ -1,13 +1,24 @@
-import { ApiError, apiPost } from "./api";
+import { ApiError, apiGet, apiPost } from "./api";
 import type {
   VehicleAIAnalysisResponse,
   VehicleComparisonAnalysisResponse,
-  VehicleDataAnalysisResponse,
-  VehicleImageAnalysisResponse,
 } from "../types/ai";
 
 const aiAnalysisCache = new Map<string, Promise<VehicleAIAnalysisResponse>>();
 const comparisonAnalysisCache = new Map<string, Promise<VehicleComparisonAnalysisResponse>>();
+const AI_REQUEST_COOLDOWN_MS = 10_000;
+let lastAIRequestAt = 0;
+
+function enforceClientCooldown(): void {
+  const now = Date.now();
+  const elapsed = now - lastAIRequestAt;
+  if (elapsed < AI_REQUEST_COOLDOWN_MS) {
+    const waitSeconds = Math.ceil((AI_REQUEST_COOLDOWN_MS - elapsed) / 1000);
+    throw new Error(`Espera ${waitSeconds}s antes de pedir otro analisis IA.`);
+  }
+
+  lastAIRequestAt = now;
+}
 
 export async function getVehicleAIAnalysis(carId: string): Promise<VehicleAIAnalysisResponse> {
   const cached = aiAnalysisCache.get(carId);
@@ -37,6 +48,7 @@ export async function getComparisonAIAnalysis(
   const cached = comparisonAnalysisCache.get(cacheKey);
   if (cached) return cached;
 
+  enforceClientCooldown();
   const request = apiPost<VehicleComparisonAnalysisResponse>(
     "ai/compare-cars",
     { carIds: normalizedIds },
@@ -55,28 +67,14 @@ async function fetchVehicleAIAnalysis(
 ): Promise<VehicleAIAnalysisResponse> {
   const encodedId = encodeURIComponent(carId);
   const suffix = force ? "?force=true" : "";
-  const [dataResponse, imageResponse] = await Promise.all([
-    apiPost<VehicleDataAnalysisResponse>(`ai/analyze-car/${encodedId}${suffix}`),
-    apiPost<VehicleImageAnalysisResponse>(`ai/analyze-images/${encodedId}${suffix}`),
-  ]);
-
-  return {
-    carId,
-    cached: dataResponse.cached && imageResponse.cached,
-    generatedAt:
-      new Date(dataResponse.generatedAt).getTime() >= new Date(imageResponse.generatedAt).getTime()
-        ? dataResponse.generatedAt
-        : imageResponse.generatedAt,
-    dataAnalysis: dataResponse.dataAnalysis,
-    imageAnalysis: imageResponse.imageAnalysis,
-    models: {
-      data: dataResponse.model,
-      vision: imageResponse.model,
-    },
-  };
+  if (force || !aiAnalysisCache.has(carId)) {
+    enforceClientCooldown();
+  }
+  return apiGet<VehicleAIAnalysisResponse>(`ai/cars/${encodedId}/analysis${suffix}`);
 }
 
 export function getAIErrorMessage(error: unknown): string {
   if (error instanceof ApiError) return error.message;
+  if (error instanceof Error) return error.message;
   return "Analisis IA temporalmente no disponible";
 }

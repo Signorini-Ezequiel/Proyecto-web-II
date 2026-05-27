@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsArray, IsString } from 'class-validator';
+import { IsArray, IsOptional, IsString } from 'class-validator';
 
 export class CarSpecsDto {
   @ApiProperty({ example: '1.8L 4 cilindros' })
@@ -10,13 +10,15 @@ export class CarSpecsDto {
   @IsString()
   power: string;
 
-  @ApiProperty({ example: '173 Nm' })
+  @ApiProperty({ example: '173 Nm', required: false })
+  @IsOptional()
   @IsString()
-  torque: string;
+  torque?: string;
 
-  @ApiProperty({ example: '0-100 km/h en 10.2s' })
+  @ApiProperty({ example: '0-100 km/h en 10.2s', required: false })
+  @IsOptional()
   @IsString()
-  acceleration: string;
+  acceleration?: string;
 
   @ApiProperty({ example: '180 km/h' })
   @IsString()
@@ -26,9 +28,10 @@ export class CarSpecsDto {
   @IsString()
   consumption: string;
 
-  @ApiProperty({ example: '4.46m x 1.83m x 1.62m' })
+  @ApiProperty({ example: '4.46m x 1.83m x 1.62m', required: false })
+  @IsOptional()
   @IsString()
-  dimensions: string;
+  dimensions?: string;
 
   @ApiProperty({ example: '1.280 kg' })
   @IsString()

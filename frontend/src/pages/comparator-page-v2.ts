@@ -405,13 +405,22 @@ function scoreRow(label: string, value: number): string {
 function bindComparisonAIAnalysis(): void {
   const card = document.querySelector<HTMLElement>("[data-ai-comparison-card]");
   const content = card?.querySelector<HTMLElement>("[data-ai-comparison-content]");
+  const runButton = card?.querySelector<HTMLButtonElement>("[data-ai-comparison-run]");
   const carIds = card?.dataset.carIds?.split(",").filter(Boolean) ?? [];
 
-  if (!card || !content || carIds.length < 2) return;
+  if (!card || !content || !runButton || carIds.length < 2) return;
 
-  window.setTimeout(() => {
+  runButton.addEventListener("click", () => {
+    runButton.disabled = true;
+    content.innerHTML = `
+      <div class="space-y-2">
+        <div class="h-4 w-full animate-pulse rounded bg-amber-100"></div>
+        <div class="h-4 w-11/12 animate-pulse rounded bg-amber-100"></div>
+        <div class="h-4 w-3/4 animate-pulse rounded bg-amber-100"></div>
+      </div>
+    `;
     void loadComparisonAI(content, carIds);
-  }, 50);
+  });
 }
 
 async function loadComparisonAI(content: HTMLElement, carIds: string[]): Promise<void> {
@@ -428,7 +437,7 @@ async function loadComparisonAI(content: HTMLElement, carIds: string[]): Promise
     `;
   } catch (error) {
     content.innerHTML = `
-      <div class="rounded-2xl border border-amber-200 bg-white/70 p-4 text-sm leading-6">
+      <div class="comparison-ai-fallback rounded-2xl border border-amber-200 bg-white/70 p-4 text-sm leading-6">
         ${escapeHtml(getAIErrorMessage(error))}
       </div>
     `;

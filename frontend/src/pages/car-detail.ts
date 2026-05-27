@@ -282,10 +282,12 @@ function renderAIAnalysisShell(canAnalyze: boolean): string {
           <p class="text-xs font-semibold uppercase tracking-[0.28em] text-[#c9540a]">Analisis IA real</p>
           <h3 class="mt-1 font-semibold text-slate-900">Evaluacion inteligente</h3>
         </div>
-        <button id="ai-regenerate" type="button" class="rounded-xl border border-[#e76e1d]/50 px-3 py-2 text-xs font-semibold text-[#c9540a] hover:bg-[#fff4eb]">Regenerar</button>
+        <button id="ai-regenerate" type="button" class="rounded-xl border border-[#e76e1d]/50 px-3 py-2 text-xs font-semibold text-[#c9540a] hover:bg-[#fff4eb]">Generar analisis</button>
       </div>
       <div id="ai-analysis-content" class="mt-4">
-        ${renderAIAnalysisLoading()}
+        <div class="ai-mini-panel rounded-2xl border p-4 text-sm leading-6">
+          Presiona generar para crear o recuperar el analisis IA cacheado.
+        </div>
       </div>
     </section>
   `;
@@ -603,13 +605,13 @@ function bindAIAnalysis(carId: string, canAnalyze: boolean): void {
     }
   };
 
+  let hasLoaded = false;
   regenerateButton?.addEventListener("click", () => {
-    void load(true);
+    void load(hasLoaded).then(() => {
+      hasLoaded = true;
+      if (regenerateButton) regenerateButton.textContent = "Regenerar";
+    });
   });
-
-  window.setTimeout(() => {
-    void load(false);
-  }, 50);
 }
 
 function bindQuestionActions(

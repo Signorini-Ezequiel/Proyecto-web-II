@@ -1,13 +1,11 @@
 import type { Car } from "../types/car";
-import type { ComparisonMetrics } from "../utils/scoring";
+import type { ComparisonCategory, ComparisonMetrics } from "../utils/scoring";
 import { isWinnerInCategory } from "../utils/scoring";
 
 export interface ComparisonTableProps {
   cars: Car[];
   metrics: ComparisonMetrics;
 }
-
-type ComparisonCategory = "price" | "mileage" | "year" | "power" | "features";
 
 type ComparisonRow = {
   label: string;
@@ -67,7 +65,7 @@ export function ComparisonTable({ cars, metrics }: ComparisonTableProps): string
           const isWinner =
             row.category && isWinnerInCategory(car.id, row.category, metrics);
           const highlightClass = isWinner
-            ? "bg-amber-100 font-bold text-amber-900 border-l-4 border-amber-400"
+            ? "comparator-table-winner bg-amber-100 font-bold text-[#9a3b06] border-l-4 border-amber-400"
             : "bg-white text-slate-700";
           return `<td class="px-4 py-3 ${highlightClass}">${row.getValue(car)}</td>`;
         })

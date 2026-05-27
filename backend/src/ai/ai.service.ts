@@ -8,16 +8,8 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Prisma } from '@prisma/client';
-import {
-  GoogleGenerativeAI,
-  SchemaType,
-  type GenerativeModel,
-  type Part,
-  type ResponseSchema,
-} from '@google/generative-ai';
+import Groq from 'groq-sdk';
 import { createHash } from 'node:crypto';
-import { readFile } from 'node:fs/promises';
-import { extname, join, normalize } from 'node:path';
 import type { EnvironmentVariables } from '../config/env.validation';
 import { PrismaService } from '../prisma/prisma.service';
 import {
@@ -30,12 +22,11 @@ import {
   VehicleImageAnalysisResult,
 } from './ai-analysis.entity';
 
-const REQUEST_TIMEOUT_MS = 45_000;
+const REQUEST_TIMEOUT_MS = 30_000;
 const MAX_IMAGES = 6;
-const MAX_INLINE_IMAGE_BYTES = 5 * 1024 * 1024;
-const RATE_LIMIT_WINDOW_MS = 60_000;
-const RATE_LIMIT_MAX = 4;
-const TEMPORARY_UNAVAILABLE_MESSAGE = 'Analisis IA temporalmente no disponible';
+const AI_REQUEST_COOLDOWN_MS = 10_000;
+const TEMPORARY_UNAVAILABLE_MESSAGE =
+  'Analisis IA temporalmente no disponible';
 
 type PublishedCarForAI = {
   id: string;
@@ -65,8 +56,8 @@ type PublishedCarForAI = {
 @Injectable()
 export class AiService {
   private readonly logger = new Logger(AiService.name);
-  private readonly requestsByUser = new Map<string, number[]>();
-  private genAI: GoogleGenerativeAI | null = null;
+  private readonly lastRequestByUser = new Map<string, number>();
+  private groq: Groq | null = null;
 
   constructor(
     private readonly prisma: PrismaService,
@@ -78,10 +69,13 @@ export class AiService {
     userId: string,
     force = false,
   ): Promise<VehicleAIAnalysisResponse> {
-    const [dataResponse, imageResponse] = await Promise.all([
-      this.analyzeCarDataById(carId, userId, force),
-      this.analyzeCarImagesById(carId, userId, force),
-    ]);
+    const dataResponse = await this.analyzeCarDataById(carId, userId, force);
+    const imageResponse = await this.analyzeCarImagesById(
+      carId,
+      userId,
+      force,
+      true,
+    );
 
     return {
       carId,
@@ -106,11 +100,12 @@ export class AiService {
     userId: string,
     force = false,
   ): Promise<VehicleDataAnalysisResponse> {
-    this.enforceRateLimit(userId);
+    const startedAt = Date.now();
     const car = await this.requirePublishedCar(carId);
-    const model = this.getTextModelName();
+    const model = this.getGroqModelName();
     const dataHash = this.hash(this.buildDataSignature(car));
 
+    this.logger.log(`request IA data carId=${carId} force=${force}`);
     const cached = force
       ? null
       : await this.prisma.aIAnalysis.findFirst({
@@ -119,6 +114,9 @@ export class AiService {
         });
 
     if (cached) {
+      this.logger.log(
+        `cache hit IA data carId=${carId} ms=${Date.now() - startedAt}`,
+      );
       return {
         carId,
         cached: true,
@@ -128,7 +126,9 @@ export class AiService {
       };
     }
 
-    const dataAnalysis = await this.callGemini(() => this.analyzeCarData(car));
+    this.logger.log(`cache miss IA data carId=${carId}`);
+    this.enforceRateLimit(userId);
+    const dataAnalysis = await this.callGroq(() => this.analyzeCarData(car));
     const stored = await this.prisma.aIAnalysis.create({
       data: {
         carId,
@@ -137,12 +137,15 @@ export class AiService {
         result: this.toJson(dataAnalysis),
         score: dataAnalysis.score,
         metadata: {
-          generatedBy: 'google-gemini',
+          generatedBy: 'groq',
           source: 'vehicle-data',
         },
       },
     });
 
+    this.logger.log(
+      `response IA data carId=${carId} cached=false ms=${Date.now() - startedAt}`,
+    );
     return {
       carId,
       cached: false,
@@ -156,13 +159,17 @@ export class AiService {
     carId: string,
     userId: string,
     force = false,
+    skipRateLimit = false,
   ): Promise<VehicleImageAnalysisResponse> {
-    this.enforceRateLimit(userId);
+    const startedAt = Date.now();
     const car = await this.requirePublishedCar(carId);
-    const model = this.getVisionModelName();
+    const model = this.getGroqModelName();
     const imageKeys = this.normalizeImageKeys(car.images);
     const imageHash = this.hash(imageKeys.join('|') || 'no-images');
 
+    this.logger.log(
+      `request IA images carId=${carId} force=${force} images=${imageKeys.length}`,
+    );
     if (imageKeys.length === 0) {
       return {
         carId,
@@ -181,6 +188,9 @@ export class AiService {
         });
 
     if (cached) {
+      this.logger.log(
+        `cache hit IA images carId=${carId} ms=${Date.now() - startedAt}`,
+      );
       return {
         carId,
         cached: true,
@@ -190,16 +200,10 @@ export class AiService {
       };
     }
 
-    const imageParts = await this.callGemini(() =>
-      this.buildImageParts(imageKeys),
-    );
-
-    if (imageParts.length === 0) {
-      throw new ServiceUnavailableException(TEMPORARY_UNAVAILABLE_MESSAGE);
-    }
-
-    const imageAnalysis = await this.callGemini(() =>
-      this.analyzeCarImages(car, imageParts),
+    this.logger.log(`cache miss IA images carId=${carId}`);
+    if (!skipRateLimit) this.enforceRateLimit(userId);
+    const imageAnalysis = await this.callGroq(() =>
+      this.analyzeCarImages(car, imageKeys),
     );
     const stored = await this.prisma.imageAnalysis.create({
       data: {
@@ -210,12 +214,17 @@ export class AiService {
         result: this.toJson(imageAnalysis),
         score: imageAnalysis.confidence,
         metadata: {
-          generatedBy: 'google-gemini',
-          imageCount: imageParts.length,
+          generatedBy: 'groq',
+          source: 'vehicle-image-estimate',
+          imageCount: imageKeys.length,
+          note: 'Groq text model estimate based on vehicle metadata and image URLs.',
         },
       },
     });
 
+    this.logger.log(
+      `response IA images carId=${carId} cached=false ms=${Date.now() - startedAt}`,
+    );
     return {
       carId,
       cached: false,
@@ -230,11 +239,14 @@ export class AiService {
     userId: string,
     force = false,
   ): Promise<VehicleComparisonAnalysisResponse> {
-    this.enforceRateLimit(userId);
+    const startedAt = Date.now();
     const uniqueCarIds = Array.from(new Set(carIds.map((id) => id.trim()))).filter(
       Boolean,
     );
 
+    this.logger.log(
+      `request IA comparison carIds=${uniqueCarIds.join(',')} force=${force}`,
+    );
     if (uniqueCarIds.length < 2 || uniqueCarIds.length > 4) {
       throw new BadRequestException('Debes comparar entre 2 y 4 vehiculos.');
     }
@@ -257,7 +269,7 @@ export class AiService {
 
       return car;
     });
-    const model = this.getTextModelName();
+    const model = this.getGroqModelName();
     const dataHash = this.hash(
       `comparison:${orderedCars
         .map((car) => this.buildDataSignature(car))
@@ -273,6 +285,11 @@ export class AiService {
         });
 
     if (cached) {
+      this.logger.log(
+        `cache hit IA comparison carIds=${uniqueCarIds.join(',')} ms=${
+          Date.now() - startedAt
+        }`,
+      );
       return {
         carIds: uniqueCarIds,
         cached: true,
@@ -283,7 +300,9 @@ export class AiService {
       };
     }
 
-    const comparisonAnalysis = await this.callGemini(() =>
+    this.logger.log(`cache miss IA comparison carIds=${uniqueCarIds.join(',')}`);
+    this.enforceRateLimit(userId);
+    const comparisonAnalysis = await this.callGroq(() =>
       this.generateComparisonAnalysis(orderedCars),
     );
     const stored = await this.prisma.aIAnalysis.create({
@@ -294,13 +313,18 @@ export class AiService {
         result: this.toJson(comparisonAnalysis),
         score: comparisonAnalysis.score,
         metadata: {
-          generatedBy: 'google-gemini',
+          generatedBy: 'groq',
           source: 'vehicle-comparison',
           carIds: uniqueCarIds,
         },
       },
     });
 
+    this.logger.log(
+      `response IA comparison carIds=${uniqueCarIds.join(',')} cached=false ms=${
+        Date.now() - startedAt
+      }`,
+    );
     return {
       carIds: uniqueCarIds,
       cached: false,
@@ -313,20 +337,15 @@ export class AiService {
   async analyzeCarData(
     car: PublishedCarForAI,
   ): Promise<VehicleDataAnalysisResult> {
-    const parsed =
-      await this.createStructuredResponse<VehicleDataAnalysisResult>({
-        modelName: this.getTextModelName(),
-        schema: this.dataSchema(),
+    const parsed = await this.createStructuredResponse<VehicleDataAnalysisResult>(
+      {
         systemInstruction:
           'Eres un asesor automotor profesional. Analiza solo los datos provistos. No inventes historial, mantenimiento, titularidad, fallas mecanicas ni inspecciones. Responde en espanol claro, corto y natural.',
-        parts: [
-          {
-            text:
-              'Analiza estos datos publicados por el usuario. Maximo dos parrafos entre summary y recommendation. Devuelve solo JSON valido.\n' +
-              JSON.stringify(this.carToPromptData(car)),
-          },
-        ],
-      });
+        userPrompt:
+          'Analiza estos datos publicados por el usuario. Maximo dos parrafos entre summary y recommendation. Devuelve solo JSON valido con: summary string, positives string[], negatives string[], recommendation string, score integer 0-100.\n' +
+          JSON.stringify(this.carToPromptData(car)),
+      },
+    );
 
     return {
       summary: parsed.summary.trim(),
@@ -339,23 +358,20 @@ export class AiService {
 
   async analyzeCarImages(
     car: PublishedCarForAI,
-    imageParts: Part[],
+    imageUrls: string[],
   ): Promise<VehicleImageAnalysisResult> {
     const parsed =
       await this.createStructuredResponse<VehicleImageAnalysisResult>({
-        modelName: this.getVisionModelName(),
-        schema: this.imageSchema(),
         systemInstruction:
-          'Eres un inspector visual automotor. Evalua solo lo visible en imagenes. Si algo no se ve, indica que no es evaluable. Se breve, honesto y util.',
-        parts: [
-          {
-            text:
-              `Analiza fotos reales publicadas de un ${car.brand} ${car.model} ${car.year}. ` +
-              'Detecta solo condiciones visibles: danos, estado exterior, pintura, limpieza, desgaste, calidad de fotos y coherencia con la descripcion. No inventes problemas mecanicos invisibles.',
-          },
-          { text: `Descripcion publicada: ${car.description}` },
-          ...imageParts,
-        ],
+          'Eres un inspector automotor. Groq no esta evaluando pixeles de imagen en este flujo: debes hacer una estimacion honesta basada en metadata del vehiculo y URLs publicadas. Aclara que es una estimacion automatica, no inspeccion visual definitiva. No inventes danos concretos; habla de posibles riesgos visibles a verificar.',
+        userPrompt:
+          'Genera un analisis visual razonable para frontend usando metadata + URLs. Devuelve solo JSON valido con: visualCondition string, detectedIssues string[], positiveAspects string[], confidence integer 0-100.\n' +
+          JSON.stringify({
+            vehiculo: this.carToPromptData(car),
+            imagenes: imageUrls,
+            instruccion:
+              'Si hay fotos, estima calidad/cobertura de publicacion y posibles puntos a revisar: pintura, golpes, cubiertas, interior, desgaste. Debe quedar claro que no es vision real.',
+          }),
       });
 
     return {
@@ -371,17 +387,11 @@ export class AiService {
   ): Promise<VehicleComparisonAnalysisResult> {
     const parsed =
       await this.createStructuredResponse<VehicleComparisonAnalysisResult>({
-        modelName: this.getTextModelName(),
-        schema: this.comparisonSchema(cars.map((car) => car.id)),
         systemInstruction:
           'Eres un asesor automotor profesional. Compara solo datos publicados. No inventes inspecciones, historial ni fallas. Si un dato no esta, tratalo como no informado.',
-        parts: [
-          {
-            text:
-              'Compara estos vehiculos y recomienda uno. Considera precio, kilometraje, marca/modelo, anio, transmision, combustible, descripcion, ubicacion y equipamiento declarado. Devuelve solo JSON valido.\n' +
-              JSON.stringify(cars.map((car) => this.carToPromptData(car))),
-          },
-        ],
+        userPrompt:
+          'Compara estos vehiculos y recomienda uno. Considera precio, kilometraje, marca/modelo, anio, transmision, combustible, descripcion, ubicacion y equipamiento declarado. Devuelve solo JSON valido con: winnerCarId string, summary string, positives string[], tradeoffs string[], recommendation string, score integer 0-100.\n' +
+          JSON.stringify(cars.map((car) => this.carToPromptData(car))),
       });
 
     const fallbackWinnerId = cars[0].id;
@@ -400,23 +410,28 @@ export class AiService {
   }
 
   private async createStructuredResponse<T>(params: {
-    modelName: string;
-    schema: ResponseSchema;
     systemInstruction: string;
-    parts: Part[];
+    userPrompt: string;
   }): Promise<T> {
-    const model = this.getModel(params.modelName, params.systemInstruction);
-    const result = await this.withTimeout(
-      model.generateContent({
-        contents: [{ role: 'user', parts: params.parts }],
-        generationConfig: {
-          temperature: 0.2,
-          responseMimeType: 'application/json',
-          responseSchema: params.schema,
-        },
+    const model = this.getGroqModelName();
+    const completion = await this.withTimeout(
+      this.getClient().chat.completions.create({
+        model,
+        messages: [
+          {
+            role: 'system',
+            content:
+              `${params.systemInstruction}\n` +
+              'Devuelve exclusivamente JSON valido. No uses markdown.',
+          },
+          { role: 'user', content: params.userPrompt },
+        ],
+        temperature: 0.2,
+        max_tokens: 700,
+        response_format: { type: 'json_object' },
       }),
     );
-    const output = result.response.text();
+    const output = completion.choices[0]?.message?.content;
 
     if (!output) {
       throw new ServiceUnavailableException(TEMPORARY_UNAVAILABLE_MESSAGE);
@@ -425,36 +440,29 @@ export class AiService {
     try {
       return JSON.parse(this.stripJsonFence(output)) as T;
     } catch {
-      this.logger.error(`Respuesta Gemini no parseable: ${output}`);
+      this.logger.error(`Respuesta Groq no parseable: ${output}`);
       throw new ServiceUnavailableException(TEMPORARY_UNAVAILABLE_MESSAGE);
     }
   }
 
-  private getModel(modelName: string, systemInstruction: string): GenerativeModel {
-    return this.getClient().getGenerativeModel({
-      model: modelName,
-      systemInstruction,
-    });
-  }
+  private getClient(): Groq {
+    if (this.groq) return this.groq;
 
-  private getClient(): GoogleGenerativeAI {
-    if (this.genAI) return this.genAI;
-
-    const apiKey = this.configService.get('GEMINI_API_KEY', { infer: true });
+    const apiKey = this.configService.get('GROQ_API_KEY', { infer: true });
     if (!apiKey) {
       throw new ServiceUnavailableException(TEMPORARY_UNAVAILABLE_MESSAGE);
     }
 
-    this.genAI = new GoogleGenerativeAI(apiKey);
-    return this.genAI;
+    this.groq = new Groq({ apiKey });
+    return this.groq;
   }
 
-  private async callGemini<T>(operation: () => Promise<T>): Promise<T> {
+  private async callGroq<T>(operation: () => Promise<T>): Promise<T> {
     try {
       return await operation();
     } catch (error) {
       if (error instanceof HttpException) throw error;
-      this.logger.error(`Gemini error: ${String(error)}`);
+      this.logger.error(`error GROQ: ${String(error)}`);
       throw new ServiceUnavailableException(TEMPORARY_UNAVAILABLE_MESSAGE);
     }
   }
@@ -463,7 +471,7 @@ export class AiService {
     let timeout: NodeJS.Timeout | undefined;
     const timeoutPromise = new Promise<never>((_resolve, reject) => {
       timeout = setTimeout(
-        () => reject(new Error('Gemini request timed out')),
+        () => reject(new Error('Groq request timed out')),
         REQUEST_TIMEOUT_MS,
       );
     });
@@ -491,110 +499,24 @@ export class AiService {
     return images.map((image) => image.trim()).filter(Boolean).slice(0, MAX_IMAGES);
   }
 
-  private async buildImageParts(images: string[]): Promise<Part[]> {
-    const parts = await Promise.all(
-      images.map(async (image) => this.imageToInlinePart(image)),
-    );
-
-    return parts.filter((part): part is Part => Boolean(part));
-  }
-
-  private async imageToInlinePart(image: string): Promise<Part | null> {
-    try {
-      const bytes = await this.readImageBytes(image);
-      if (!bytes || bytes.length > MAX_INLINE_IMAGE_BYTES) return null;
-
-      return {
-        inlineData: {
-          data: bytes.toString('base64'),
-          mimeType: this.getImageMimeType(image),
-        },
-      };
-    } catch (error) {
-      this.logger.warn(`No se pudo preparar imagen para Gemini: ${String(error)}`);
-      return null;
-    }
-  }
-
-  private async readImageBytes(image: string): Promise<Buffer | null> {
-    if (/^https?:\/\//i.test(image)) {
-      const localPath = this.tryLocalUploadPathFromUrl(image);
-      if (localPath) return readFile(localPath);
-
-      const response = await fetch(image);
-      if (!response.ok) return null;
-      return Buffer.from(await response.arrayBuffer());
-    }
-
-    if (image.startsWith('/uploads/')) {
-      return readFile(this.resolveUploadPath(image));
-    }
-
-    return null;
-  }
-
-  private tryLocalUploadPathFromUrl(image: string): string | null {
-    try {
-      const url = new URL(image);
-      if (
-        (url.hostname === 'localhost' || url.hostname === '127.0.0.1') &&
-        url.pathname.startsWith('/uploads/')
-      ) {
-        return this.resolveUploadPath(url.pathname);
-      }
-    } catch {
-      return null;
-    }
-
-    return null;
-  }
-
-  private resolveUploadPath(pathname: string): string {
-    const relativePath = pathname.replace(/^\/uploads\/?/, '');
-    const resolvedPath = normalize(join(process.cwd(), 'uploads', relativePath));
-    const uploadsRoot = normalize(join(process.cwd(), 'uploads'));
-
-    if (!resolvedPath.startsWith(uploadsRoot)) {
-      throw new BadRequestException('Ruta de imagen invalida.');
-    }
-
-    return resolvedPath;
-  }
-
-  private getImageMimeType(image: string): string {
-    const pathname = /^https?:\/\//i.test(image)
-      ? new URL(image).pathname
-      : image;
-    const extension = extname(pathname).toLowerCase();
-
-    if (extension === '.png') return 'image/png';
-    if (extension === '.webp') return 'image/webp';
-    return 'image/jpeg';
-  }
-
-  private getTextModelName(): string {
-    return this.configService.get('AI_MODEL', { infer: true });
-  }
-
-  private getVisionModelName(): string {
-    return this.configService.get('AI_VISION_MODEL', { infer: true });
+  private getGroqModelName(): string {
+    return this.configService.get('GROQ_MODEL', { infer: true });
   }
 
   private enforceRateLimit(userId: string): void {
     const now = Date.now();
-    const recent = (this.requestsByUser.get(userId) ?? []).filter(
-      (timestamp) => now - timestamp < RATE_LIMIT_WINDOW_MS,
-    );
+    const lastRequest = this.lastRequestByUser.get(userId) ?? 0;
+    const elapsed = now - lastRequest;
 
-    if (recent.length >= RATE_LIMIT_MAX) {
+    if (elapsed < AI_REQUEST_COOLDOWN_MS) {
+      const waitSeconds = Math.ceil((AI_REQUEST_COOLDOWN_MS - elapsed) / 1000);
       throw new HttpException(
-        'Demasiadas solicitudes de analisis IA. Intenta nuevamente en un minuto.',
+        `Espera ${waitSeconds}s antes de pedir otro analisis IA.`,
         HttpStatus.TOO_MANY_REQUESTS,
       );
     }
 
-    recent.push(now);
-    this.requestsByUser.set(userId, recent);
+    this.lastRequestByUser.set(userId, now);
   }
 
   private carToPromptData(car: PublishedCarForAI): Record<string, unknown> {
@@ -612,7 +534,12 @@ export class AiService {
       color: car.color,
       motor: car.engine,
       potencia: car.power,
+      torque: car.torque,
+      aceleracion: car.acceleration,
+      velocidadMaxima: car.topSpeed,
       consumo: car.consumption,
+      dimensiones: car.dimensions,
+      peso: car.weight,
       equipamiento: car.features,
     };
   }
@@ -631,6 +558,14 @@ export class AiService {
         description: car.description,
         location: car.location,
         color: car.color,
+        engine: car.engine,
+        power: car.power,
+        torque: car.torque,
+        acceleration: car.acceleration,
+        topSpeed: car.topSpeed,
+        consumption: car.consumption,
+        dimensions: car.dimensions,
+        weight: car.weight,
         features: car.features,
         updatedAt: car.updatedAt,
       },
@@ -651,11 +586,13 @@ export class AiService {
     return Math.max(0, Math.min(100, Math.round(value)));
   }
 
-  private cleanList(items: string[]): string[] {
-    return items
-      .map((item) => item.trim())
-      .filter(Boolean)
-      .slice(0, 4);
+  private cleanList(items: string[] | undefined): string[] {
+    return Array.isArray(items)
+      ? items
+          .map((item) => item.trim())
+          .filter(Boolean)
+          .slice(0, 4)
+      : [];
   }
 
   private stripJsonFence(value: string): string {
@@ -664,81 +601,5 @@ export class AiService {
       .replace(/^```json\s*/i, '')
       .replace(/^```\s*/i, '')
       .replace(/\s*```$/i, '');
-  }
-
-  private dataSchema(): ResponseSchema {
-    return {
-      type: SchemaType.OBJECT,
-      required: ['summary', 'positives', 'negatives', 'recommendation', 'score'],
-      properties: {
-        summary: { type: SchemaType.STRING },
-        positives: {
-          type: SchemaType.ARRAY,
-          items: { type: SchemaType.STRING },
-        },
-        negatives: {
-          type: SchemaType.ARRAY,
-          items: { type: SchemaType.STRING },
-        },
-        recommendation: { type: SchemaType.STRING },
-        score: { type: SchemaType.INTEGER },
-      },
-    };
-  }
-
-  private imageSchema(): ResponseSchema {
-    return {
-      type: SchemaType.OBJECT,
-      required: [
-        'visualCondition',
-        'detectedIssues',
-        'positiveAspects',
-        'confidence',
-      ],
-      properties: {
-        visualCondition: { type: SchemaType.STRING },
-        detectedIssues: {
-          type: SchemaType.ARRAY,
-          items: { type: SchemaType.STRING },
-        },
-        positiveAspects: {
-          type: SchemaType.ARRAY,
-          items: { type: SchemaType.STRING },
-        },
-        confidence: { type: SchemaType.INTEGER },
-      },
-    };
-  }
-
-  private comparisonSchema(carIds: string[]): ResponseSchema {
-    return {
-      type: SchemaType.OBJECT,
-      required: [
-        'winnerCarId',
-        'summary',
-        'positives',
-        'tradeoffs',
-        'recommendation',
-        'score',
-      ],
-      properties: {
-        winnerCarId: {
-          type: SchemaType.STRING,
-          format: 'enum',
-          enum: carIds,
-        },
-        summary: { type: SchemaType.STRING },
-        positives: {
-          type: SchemaType.ARRAY,
-          items: { type: SchemaType.STRING },
-        },
-        tradeoffs: {
-          type: SchemaType.ARRAY,
-          items: { type: SchemaType.STRING },
-        },
-        recommendation: { type: SchemaType.STRING },
-        score: { type: SchemaType.INTEGER },
-      },
-    };
   }
 }

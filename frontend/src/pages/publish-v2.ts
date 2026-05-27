@@ -217,13 +217,13 @@ export async function renderPublishPage(container: HTMLElement, isEditMode = fal
 
               <div class="grid gap-4 md:grid-cols-2">
                 <div>
-                  <label class="mb-2 block text-sm font-medium text-slate-700">Torque *</label>
-                  <input type="text" id="torque" required placeholder="Ej: 173 Nm" class="w-full rounded-lg border border-slate-200 px-4 py-3 focus:border-[#e76e1d] focus:outline-none focus:ring-1 focus:ring-[#e76e1d]">
+                  <label class="mb-2 block text-sm font-medium text-slate-700">Torque</label>
+                  <input type="text" id="torque" placeholder="Ej: 173 Nm" class="w-full rounded-lg border border-slate-200 px-4 py-3 focus:border-[#e76e1d] focus:outline-none focus:ring-1 focus:ring-[#e76e1d]">
                   <p id="torque-error" class="mt-1 hidden text-sm text-red-500"></p>
                 </div>
                 <div>
-                  <label class="mb-2 block text-sm font-medium text-slate-700">Aceleración *</label>
-                  <input type="text" id="acceleration" required placeholder="Ej: 0-100 km/h en 10.2s" class="w-full rounded-lg border border-slate-200 px-4 py-3 focus:border-[#e76e1d] focus:outline-none focus:ring-1 focus:ring-[#e76e1d]">
+                  <label class="mb-2 block text-sm font-medium text-slate-700">Aceleración</label>
+                  <input type="text" id="acceleration" placeholder="Ej: 0-100 km/h en 10.2s" class="w-full rounded-lg border border-slate-200 px-4 py-3 focus:border-[#e76e1d] focus:outline-none focus:ring-1 focus:ring-[#e76e1d]">
                   <p id="acceleration-error" class="mt-1 hidden text-sm text-red-500"></p>
                 </div>
               </div>
@@ -243,8 +243,8 @@ export async function renderPublishPage(container: HTMLElement, isEditMode = fal
 
               <div class="grid gap-4 md:grid-cols-2">
                 <div>
-                  <label class="mb-2 block text-sm font-medium text-slate-700">Dimensiones *</label>
-                  <input type="text" id="dimensions" required placeholder="Ej: 4.46m x 1.83m x 1.62m" class="w-full rounded-lg border border-slate-200 px-4 py-3 focus:border-[#e76e1d] focus:outline-none focus:ring-1 focus:ring-[#e76e1d]">
+                  <label class="mb-2 block text-sm font-medium text-slate-700">Dimensiones</label>
+                  <input type="text" id="dimensions" placeholder="Ej: 4.46m x 1.83m x 1.62m" class="w-full rounded-lg border border-slate-200 px-4 py-3 focus:border-[#e76e1d] focus:outline-none focus:ring-1 focus:ring-[#e76e1d]">
                   <p id="dimensions-error" class="mt-1 hidden text-sm text-red-500"></p>
                 </div>
                 <div>
@@ -341,6 +341,11 @@ export async function renderPublishPage(container: HTMLElement, isEditMode = fal
   }
 
   function validateField(fieldId: string, value: string): string | null {
+    const optionalFields = new Set(["torque", "acceleration", "dimensions"]);
+    if (optionalFields.has(fieldId) && !value.trim()) {
+      return null;
+    }
+
     if (!value.trim()) {
       return "Este campo es requerido";
     }

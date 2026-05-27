@@ -36,11 +36,12 @@ export function RecommendationSummary({
           </h4>
           
           <div data-ai-comparison-content class="mb-4 text-slate-700">
-            <div class="space-y-2">
-              <div class="h-4 w-full animate-pulse rounded bg-amber-100"></div>
-              <div class="h-4 w-11/12 animate-pulse rounded bg-amber-100"></div>
-              <div class="h-4 w-3/4 animate-pulse rounded bg-amber-100"></div>
+            <div class="comparison-ai-fallback rounded-2xl border border-amber-200 bg-white/70 p-4 text-sm leading-6">
+              Presiona analizar para generar o recuperar la comparacion IA cacheada.
             </div>
+            <button type="button" data-ai-comparison-run class="mt-3 rounded-xl border border-[#e76e1d]/50 px-4 py-2 text-xs font-semibold text-[#c9540a] hover:bg-[#fff4eb]">
+              Analizar con IA
+            </button>
           </div>
           
           <div class="grid grid-cols-2 sm:grid-cols-5 gap-3 text-center">

@@ -12,6 +12,8 @@ export interface ScoreResult {
   };
 }
 
+export type ComparisonCategory = "price" | "mileage" | "year" | "power" | "features";
+
 export interface ComparisonMetrics {
   bestPrice: ScoreResult;
   lowestMileage: ScoreResult;
@@ -19,6 +21,7 @@ export interface ComparisonMetrics {
   mostPowerful: ScoreResult;
   bestEquipment: ScoreResult;
   overallWinner: ScoreResult;
+  categoryWinners: Record<ComparisonCategory, string[]>;
 }
 
 function extractPower(powerStr: string): number {
@@ -96,6 +99,11 @@ export function getComparisonMetrics(cars: Car[]): {
   const scores = calculateComparisonScores(cars);
 
   const sorted = [...scores].sort((a, b) => b.totalScore - a.totalScore);
+  const getUniqueCategoryWinner = (category: ComparisonCategory): string[] => {
+    const bestScore = Math.max(...scores.map((score) => score.scores[category]));
+    const winners = scores.filter((score) => score.scores[category] === bestScore);
+    return winners.length === 1 ? [winners[0].carId] : [];
+  };
 
   return {
     scores,
@@ -106,6 +114,13 @@ export function getComparisonMetrics(cars: Car[]): {
       mostPowerful: scores.reduce((a, b) => (a.scores.power > b.scores.power ? a : b)),
       bestEquipment: scores.reduce((a, b) => (a.scores.features > b.scores.features ? a : b)),
       overallWinner: sorted[0],
+      categoryWinners: {
+        price: getUniqueCategoryWinner("price"),
+        mileage: getUniqueCategoryWinner("mileage"),
+        year: getUniqueCategoryWinner("year"),
+        power: getUniqueCategoryWinner("power"),
+        features: getUniqueCategoryWinner("features"),
+      },
     },
   };
 }
@@ -122,6 +137,9 @@ export function isWinnerInCategory(
     power: metrics.mostPowerful,
     features: metrics.bestEquipment,
   };
+  if (metrics.categoryWinners) {
+    return metrics.categoryWinners[category].includes(carId);
+  }
   return categoryMap[category].carId === carId;
 }
 
