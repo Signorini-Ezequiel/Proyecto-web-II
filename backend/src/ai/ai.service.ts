@@ -209,7 +209,7 @@ export class AiService {
           orderBy: { createdAt: 'desc' },
         });
 
-    if (cached) {
+    if (cached && this.isReusableVisionCache(cached, model)) {
       this.logger.log(
         `cache hit IA images carId=${carId} ms=${Date.now() - startedAt}`,
       );
@@ -220,6 +220,12 @@ export class AiService {
         imageAnalysis: cached.result as unknown as VehicleImageAnalysisResult,
         model: cached.model,
       };
+    }
+
+    if (cached) {
+      this.logger.warn(
+        `stale IA images cache ignored carId=${carId} cachedModel=${cached.model} expectedModel=${model}`,
+      );
     }
 
     this.logger.log(`cache miss IA images carId=${carId}`);
@@ -443,9 +449,9 @@ export class AiService {
     const model = this.getGroqVisionModelName();
     const startedAt = Date.now();
     const prompt =
-      'Analiza visualmente este auto usado a partir de las imagenes adjuntas. ' +
+      'Estas recibiendo imagenes reales adjuntas en este mensaje. Analiza visualmente este auto usado a partir de esas imagenes. ' +
       'Evalua solamente lo que se vea en las fotos: estado general, danos visibles, pintura, ruedas, interior, desgaste, modificaciones, limpieza, senales de choque y estado percibido. ' +
-      'No inventes danos ni historial. Si algo no se ve, indicalo como no verificable. ' +
+      'No digas que no puedes hacer inspeccion visual si las imagenes estan presentes. No inventes danos ni historial. Si una zona puntual no se ve, indicala como no verificable. ' +
       'Devuelve solo JSON valido con esta forma exacta: {"overallCondition":"","positivePoints":[],"negativePoints":[],"damageDetected":[],"estimatedVisualCondition":"","summary":""}.\n' +
       JSON.stringify({ vehiculo: this.carToPromptData(car) });
     const content: GroqVisionContentPart[] = [
@@ -634,6 +640,22 @@ export class AiService {
       positiveAspects: [],
       confidence: 0,
     };
+  }
+
+  private isReusableVisionCache(
+    cached: { model: string; metadata: unknown },
+    expectedModel: string,
+  ): boolean {
+    if (cached.model !== expectedModel) return false;
+
+    const metadata = cached.metadata;
+    if (!metadata || typeof metadata !== 'object' || Array.isArray(metadata)) {
+      return false;
+    }
+
+    return (
+      (metadata as { source?: unknown }).source === 'vehicle-image-vision'
+    );
   }
 
   private async generateComparisonAnalysis(
