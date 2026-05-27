@@ -46,6 +46,32 @@
   50% { transform: translateY(-8px); }
 }
 
+.page-loader {
+  align-items: center;
+  background: var(--page-gradient);
+  display: flex;
+  inset: 0;
+  justify-content: center;
+  min-height: 100vh;
+  position: fixed;
+  z-index: 9999;
+}
+
+.page-loader__spinner {
+  animation: pageLoaderSpin 0.8s linear infinite;
+  border: 4px solid rgba(231, 110, 29, 0.22);
+  border-radius: 999px;
+  border-top-color: var(--brand);
+  height: 56px;
+  width: 56px;
+}
+
+@keyframes pageLoaderSpin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 .app-bg {
   background:
     radial-gradient(circle at 10% 22%, rgba(231, 110, 29, 0.18) 0%, transparent 16%),

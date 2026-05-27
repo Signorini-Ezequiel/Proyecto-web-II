@@ -50,6 +50,15 @@ let didValidateStoredSession = false;
 
 initializeTheme();
 
+function renderPageLoader(): void {
+  app.innerHTML = `
+    <div class="page-loader" role="status" aria-live="polite" aria-label="Cargando pagina">
+      <div class="page-loader__spinner" aria-hidden="true"></div>
+      <span class="sr-only">Cargando...</span>
+    </div>
+  `;
+}
+
 async function validateStoredSessionOnce(): Promise<void> {
   if (didValidateStoredSession) return;
   didValidateStoredSession = true;
@@ -82,6 +91,7 @@ function guardRoute(path: string): boolean {
 }
 
 async function renderRoute(): Promise<void> {
+  renderPageLoader();
   await validateStoredSessionOnce();
 
   const currentPath = window.location.pathname || "/";
