@@ -32,17 +32,16 @@ export function renderLoginPage(container: HTMLElement): void {
               <form id="login-form" class="space-y-5">
                 ${Input({
                   id: "email",
-                  label: "Correo electrónico",
+                  label: "Correo electronico",
                   type: "email",
-                  placeholder: "buyer@autopoint.com",
-                  hint: "Usá alguna de las cuentas mock indicadas abajo.",
+                  placeholder: "tuemail@ejemplo.com",
                 })}
 
                 ${Input({
                   id: "password",
-                  label: "Contraseña",
+                  label: "Contrasena",
                   type: "password",
-                  placeholder: "1234",
+                  placeholder: "Tu contrasena",
                 })}
 
                 ${ErrorMessage({
@@ -53,7 +52,7 @@ export function renderLoginPage(container: HTMLElement): void {
 
                 ${Button({
                   id: "login-submit",
-                  text: "Iniciar sesión",
+                  text: "Iniciar sesion",
                   type: "submit",
                   variant: "primary",
                   fullWidth: true,
@@ -76,7 +75,7 @@ export function renderLoginPage(container: HTMLElement): void {
               </div>
 
               <div class="mt-6 text-center text-sm text-slate-600">
-                ¿Todavía no tenés cuenta?
+                Todavia no tenes cuenta?
                 <button id="go-register" class="ml-1 font-medium text-[#e76e1d] hover:text-[#e76e1d]">
                   Crear cuenta
                 </button>
@@ -105,13 +104,13 @@ export function renderLoginPage(container: HTMLElement): void {
 
   document.querySelector("#fill-buyer")?.addEventListener("click", () => {
     emailInput.value = "buyer@autopoint.com";
-    passwordInput.value = "1234";
+    passwordInput.value = "buyer123";
     errorBox.classList.add("hidden");
   });
 
   document.querySelector("#fill-seller")?.addEventListener("click", () => {
     emailInput.value = "seller@autopoint.com";
-    passwordInput.value = "1234";
+    passwordInput.value = "seller123";
     errorBox.classList.add("hidden");
   });
 

@@ -64,7 +64,7 @@ export class AuthController {
   @ApiOperation({ summary: 'Obtiene perfil del usuario autenticado.' })
   @ApiOkResponse({ description: 'Devuelve el usuario autenticado.' })
   @ApiResponse({ status: 401, description: 'Token JWT inválido o ausente.' })
-  profile(@Req() request: AuthenticatedRequest): PublicUser {
+  async profile(@Req() request: AuthenticatedRequest): Promise<PublicUser> {
     return this.usersService.findById(request.user.sub);
   }
 }

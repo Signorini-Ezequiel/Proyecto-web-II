@@ -1,21 +1,21 @@
-import type { Car } from "../data/cars";
+import type { Car } from "../types/car";
 import type { ComparisonMetrics } from "../utils/scoring";
-import { generateCarSummary } from "../utils/summary-generator";
 
 export interface RecommendationSummaryProps {
   winnerCar: Car;
   metrics: ComparisonMetrics;
+  selectedCarIds: string[];
 }
 
 export function RecommendationSummary({
   winnerCar,
   metrics,
+  selectedCarIds,
 }: RecommendationSummaryProps): string {
-  const summary = generateCarSummary(winnerCar, metrics);
   const score = Math.round(metrics.overallWinner.totalScore);
 
   return `
-    <div class="bg-gradient-to-br from-amber-50 via-white to-yellow-50 rounded-xl border-2 border-amber-200 p-6 shadow-lg">
+    <div class="rounded-xl border-2 border-amber-200 bg-gradient-to-br from-amber-50 via-white to-yellow-50 p-6 shadow-lg" data-ai-comparison-card data-car-ids="${selectedCarIds.join(",")}">
       <div class="flex items-start gap-4">
         <div class="flex-shrink-0">
           <svg class="w-12 h-12 text-amber-500" fill="currentColor" viewBox="0 0 20 20">
@@ -35,9 +35,13 @@ export function RecommendationSummary({
             ${winnerCar.make} ${winnerCar.model} (${winnerCar.year})
           </h4>
           
-          <p class="text-slate-700 leading-relaxed text-justify mb-4">
-            ${summary}
-          </p>
+          <div data-ai-comparison-content class="mb-4 text-slate-700">
+            <div class="space-y-2">
+              <div class="h-4 w-full animate-pulse rounded bg-amber-100"></div>
+              <div class="h-4 w-11/12 animate-pulse rounded bg-amber-100"></div>
+              <div class="h-4 w-3/4 animate-pulse rounded bg-amber-100"></div>
+            </div>
+          </div>
           
           <div class="grid grid-cols-2 sm:grid-cols-5 gap-3 text-center">
             <div class="bg-white rounded-lg p-2">

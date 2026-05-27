@@ -57,7 +57,7 @@ export class HttpExceptionFilter implements ExceptionFilter {
 
     if (exception instanceof Prisma.PrismaClientKnownRequestError) {
       if (exception.code === 'P2025') return HttpStatus.NOT_FOUND;
-      if (['P2002', 'P2003'].includes(exception.code)) {
+      if (['P2002', 'P2003', 'P2023'].includes(exception.code)) {
         return HttpStatus.BAD_REQUEST;
       }
     }
@@ -121,6 +121,13 @@ export class HttpExceptionFilter implements ExceptionFilter {
         return {
           error: 'Not Found',
           messages: ['El recurso solicitado no existe.'],
+        };
+      case 'P2023':
+        return {
+          error: 'Bad Request',
+          messages: [
+            'Hay un dato persistido con formato incompatible con el schema Prisma actual. Revisa IDs legacy y tipos de relaciones.',
+          ],
         };
       default:
         return {

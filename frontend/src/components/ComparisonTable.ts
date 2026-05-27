@@ -1,4 +1,4 @@
-import type { Car } from "../data/cars";
+import type { Car } from "../types/car";
 import type { ComparisonMetrics } from "../utils/scoring";
 import { isWinnerInCategory } from "../utils/scoring";
 

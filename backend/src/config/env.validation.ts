@@ -10,6 +10,10 @@ export interface EnvironmentVariables {
   PORT: number;
   NODE_ENV: NodeEnvironment;
   CORS_ORIGIN?: string;
+  BACKEND_PUBLIC_URL?: string;
+  GEMINI_API_KEY?: string;
+  AI_MODEL: string;
+  AI_VISION_MODEL: string;
   RATE_LIMIT_WINDOW_MS: number;
   RATE_LIMIT_MAX: number;
 }
@@ -18,6 +22,8 @@ const DEFAULT_RATE_LIMIT_WINDOW_MS = 15 * 60 * 1000;
 const DEFAULT_RATE_LIMIT_MAX = 100;
 const DEFAULT_JWT_ACCESS_EXPIRES_IN: ms.StringValue = '15m';
 const DEFAULT_JWT_REFRESH_EXPIRES_IN: ms.StringValue = '7d';
+const DEFAULT_AI_MODEL = 'gemini-1.5-flash';
+const DEFAULT_AI_VISION_MODEL = 'gemini-1.5-flash';
 
 export function validateEnvironment(
   env: Record<string, unknown>,
@@ -38,6 +44,11 @@ export function validateEnvironment(
     PORT: getRequiredPort(env, 'PORT'),
     NODE_ENV: getNodeEnvironment(env.NODE_ENV),
     CORS_ORIGIN: getOptionalString(env.CORS_ORIGIN),
+    BACKEND_PUBLIC_URL: getOptionalString(env.BACKEND_PUBLIC_URL),
+    GEMINI_API_KEY: getOptionalString(env.GEMINI_API_KEY),
+    AI_MODEL: getOptionalString(env.AI_MODEL) ?? DEFAULT_AI_MODEL,
+    AI_VISION_MODEL:
+      getOptionalString(env.AI_VISION_MODEL) ?? DEFAULT_AI_VISION_MODEL,
     RATE_LIMIT_WINDOW_MS: getOptionalPositiveInteger(
       env.RATE_LIMIT_WINDOW_MS,
       'RATE_LIMIT_WINDOW_MS',

@@ -16,33 +16,33 @@ import { UsersRepository } from './users.repository';
 export class UsersService {
   constructor(private readonly usersRepository: UsersRepository) {}
 
-  findAll(): PublicUser[] {
-    return this.usersRepository.findAll().map(toPublicUser);
+  async findAll(): Promise<PublicUser[]> {
+    return (await this.usersRepository.findAll()).map(toPublicUser);
   }
 
-  findById(id: number): PublicUser {
-    return toPublicUser(this.usersRepository.requireById(id));
+  async findById(id: string): Promise<PublicUser> {
+    return toPublicUser(await this.usersRepository.requireById(id));
   }
 
-  findPrivateById(id: number): User {
+  async findPrivateById(id: string): Promise<User> {
     return this.usersRepository.requireById(id);
   }
 
-  findPrivateByEmail(email: string): User | undefined {
+  async findPrivateByEmail(email: string): Promise<User | undefined> {
     return this.usersRepository.findByEmail(email);
   }
 
   async create(dto: CreateUserDto): Promise<PublicUser> {
     const passwordHash = await bcrypt.hash(dto.password, BCRYPT_SALT_ROUNDS);
-    return toPublicUser(this.usersRepository.create(dto, passwordHash));
+    return toPublicUser(await this.usersRepository.create(dto, passwordHash));
   }
 
-  update(id: number, dto: UpdateUserDto): PublicUser {
-    return toPublicUser(this.usersRepository.update(id, dto));
+  async update(id: string, dto: UpdateUserDto): Promise<PublicUser> {
+    return toPublicUser(await this.usersRepository.update(id, dto));
   }
 
   async updatePassword(
-    id: number,
+    id: string,
     dto: UpdatePasswordDto,
   ): Promise<PublicUser> {
     if (dto.newPassword !== dto.confirmPassword) {
@@ -51,7 +51,7 @@ export class UsersService {
       );
     }
 
-    const user = this.usersRepository.requireById(id);
+    const user = await this.usersRepository.requireById(id);
     const passwordMatches = await bcrypt.compare(
       dto.currentPassword,
       user.passwordHash,
@@ -62,6 +62,6 @@ export class UsersService {
     }
 
     const passwordHash = await bcrypt.hash(dto.newPassword, BCRYPT_SALT_ROUNDS);
-    return toPublicUser(this.usersRepository.updatePassword(id, passwordHash));
+    return toPublicUser(await this.usersRepository.updatePassword(id, passwordHash));
   }
 }

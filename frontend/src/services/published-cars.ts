@@ -1,4 +1,4 @@
-import { type Car, CARS } from "../data/cars";
+import type { Car } from "../types/car";
 import type {
   CreatePublishedCarDto,
   PublishedCarDto,
@@ -9,8 +9,6 @@ import { apiDelete, apiGet, apiPatch, apiPost } from "./api";
 import { normalizeUploadedImageUrl } from "./upload.service";
 
 export type PublishedCar = PublishedCarDto;
-
-const PUBLISHED_CARS_KEY = "published_cars";
 
 export const DEFAULT_CAR_SPECS: Car["specs"] = {
   engine: "No especificado",
@@ -42,7 +40,7 @@ function normalizeTransmission(value: string | undefined): string {
   const normalized = value ?? "";
   const transmissionMap: Record<Transmission, string> = {
     MANUAL: "Manual",
-    AUTOMATIC: "AutomÃ¡tica",
+    AUTOMATIC: "Automática",
     SEMI_AUTOMATIC: "CVT",
   };
 
@@ -54,8 +52,8 @@ function normalizeFuel(value: string | undefined): string {
   const fuelMap: Record<string, string> = {
     GASOLINE: "Nafta",
     DIESEL: "Diesel",
-    HYBRID: "HÃ­brido",
-    ELECTRIC: "ElÃ©ctrico",
+    HYBRID: "Híbrido",
+    ELECTRIC: "Eléctrico",
     CNG: "GNC",
     LPG: "Otro",
     OTHER: "Otro",
@@ -80,7 +78,15 @@ function normalizePublishedCar(car: Partial<PublishedCar> & { id: string }): Pub
     location: car.location ?? "",
     description: car.description ?? "",
     images: Array.isArray(car.images) ? car.images.map(normalizeUploadedImageUrl) : [],
-    sellerId: Number(car.sellerId ?? 0),
+    sellerId: String(car.sellerId ?? ""),
+    seller: car.seller
+      ? {
+          id: String(car.seller.id ?? ""),
+          name: String(car.seller.name ?? "Vendedor"),
+          role: car.seller.role === "seller" ? "seller" : "buyer",
+          avatarUrl: car.seller.avatarUrl ?? null,
+        }
+      : undefined,
     publishedAt: car.publishedAt ?? new Date().toISOString(),
     updatedAt: car.updatedAt ?? car.publishedAt ?? new Date().toISOString(),
     specs,
@@ -105,35 +111,49 @@ export function publishedCarToCar(published: PublishedCar): Car {
   };
 }
 
-export function getPublishedCars(): PublishedCar[] {
-  try {
-    const stored = localStorage.getItem(PUBLISHED_CARS_KEY);
-    const parsed = stored ? (JSON.parse(stored) as Array<Partial<PublishedCar> & { id: string }>) : [];
-    return parsed.map(normalizePublishedCar);
-  } catch (error) {
-    console.error("Error loading published cars:", error);
-    return [];
-  }
+let publishedCarsCache: PublishedCar[] | null = null;
+let publishedCarsRequest: Promise<PublishedCar[]> | null = null;
+
+function clearPublishedCarsCache(): void {
+  publishedCarsCache = null;
+  publishedCarsRequest = null;
 }
 
 export async function fetchPublishedCars(): Promise<PublishedCar[]> {
-  const cars = await apiGet<Array<Partial<PublishedCar> & { id: string }>>("published-cars")
-    .then((items) => items.map(normalizePublishedCar))
-    .catch(() => getPublishedCars());
-  localStorage.setItem(PUBLISHED_CARS_KEY, JSON.stringify(cars));
-  return cars;
+  if (publishedCarsCache) return publishedCarsCache;
+  if (publishedCarsRequest) return publishedCarsRequest;
+
+  publishedCarsRequest = apiGet<Partial<PublishedCar> & { id: string }[]>("published-cars")
+    .then((items) => {
+      const normalized = items.map(normalizePublishedCar);
+      publishedCarsCache = normalized;
+      return normalized;
+    })
+    .finally(() => {
+      publishedCarsRequest = null;
+    });
+
+  return publishedCarsRequest;
+}
+
+export async function fetchPublishedCarById(carId: string): Promise<PublishedCar | null> {
+  return apiGet<Partial<PublishedCar> & { id: string }>(`published-cars/${encodeURIComponent(carId)}`)
+    .then(normalizePublishedCar)
+    .catch(() => null);
+}
+
+export async function fetchPublishedCarsBySeller(sellerId: string): Promise<PublishedCar[]> {
+  return apiGet<Partial<PublishedCar> & { id: string }[]>(
+    `published-cars/seller/${encodeURIComponent(sellerId)}`,
+  ).then((items) => items.map(normalizePublishedCar));
 }
 
 export async function savePublishedCar(
   car: CreatePublishedCarDto,
 ): Promise<PublishedCar> {
-  const newCar = normalizePublishedCar(
-    await apiPost<Partial<PublishedCar> & { id: string }, CreatePublishedCarDto>("published-cars", car),
-  );
-  const publishedCars = getPublishedCars();
-  publishedCars.push(newCar);
-  localStorage.setItem(PUBLISHED_CARS_KEY, JSON.stringify(publishedCars));
-  return newCar;
+  const newCar = await apiPost<Partial<PublishedCar> & { id: string }, CreatePublishedCarDto>("published-cars", car);
+  clearPublishedCarsCache();
+  return normalizePublishedCar(newCar);
 }
 
 export async function updatePublishedCar(
@@ -147,44 +167,25 @@ export async function updatePublishedCar(
     .then(normalizePublishedCar)
     .catch(() => null);
 
-  if (!updatedCar) return false;
-
-  const publishedCars = getPublishedCars();
-  const index = publishedCars.findIndex((car) => car.id === carId);
-
-  if (index !== -1) {
-    publishedCars[index] = { ...publishedCars[index], ...updatedCar };
-  } else {
-    publishedCars.push(updatedCar);
-  }
-
-  localStorage.setItem(PUBLISHED_CARS_KEY, JSON.stringify(publishedCars));
-  return true;
+  if (updatedCar) clearPublishedCarsCache();
+  return updatedCar !== null;
 }
 
 export async function deletePublishedCar(carId: string): Promise<boolean> {
-  const deleted = await apiDelete<{ ok: true }>(`published-cars/${encodeURIComponent(carId)}`)
-    .then(() => true)
+  return apiDelete<{ ok: true }>(`published-cars/${encodeURIComponent(carId)}`)
+    .then(() => {
+      clearPublishedCarsCache();
+      return true;
+    })
     .catch(() => false);
-
-  if (!deleted) return false;
-
-  const publishedCars = getPublishedCars();
-  const filtered = publishedCars.filter((car) => car.id !== carId);
-  localStorage.setItem(PUBLISHED_CARS_KEY, JSON.stringify(filtered));
-  return true;
 }
 
-export function getPublishedCarById(carId: string): PublishedCar | null {
-  const publishedCars = getPublishedCars();
-  return publishedCars.find((car) => car.id === carId) || null;
-}
+export async function getPublishedCarById(id: string) {
+  const car = await fetchPublishedCarById(id);
 
-export function getPublishedCarsBySeller(sellerId: number): PublishedCar[] {
-  return getPublishedCars().filter((car) => car.sellerId === sellerId);
-}
+  if (!car) {
+    throw new Error("No se pudo obtener el vehiculo.");
+  }
 
-export function getAllCarsForDisplay(): Car[] {
-  const convertedPublishedCars = getPublishedCars().map(publishedCarToCar);
-  return [...CARS, ...convertedPublishedCars];
+  return car;
 }

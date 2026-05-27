@@ -2,7 +2,6 @@ import { NavBar, NavBarListeners } from "../components/NavBar";
 import { getSessionUser, logout } from "../services/auth";
 import { navigateTo, ROUTES } from "../utils/router";
 import { Icons } from "../utils/icons";
-import { MAKES } from "../data/makes";
 import {
   getPublishedCarById,
   normalizeCarSpecs,
@@ -22,14 +21,12 @@ const VALIDATION_LIMITS = {
   year: { min: 1995, max: CURRENT_YEAR + 1 },
   price: { min: 1000, max: 500000 },
   mileage: { min: 0, max: 500000 },
-  featuresMin: 2,
 };
 
 const FIELD_RULES = {
   model: /^[a-zA-Z0-9\s\-]+$/,
   color: /^[a-zA-Z\s]+$/,
   location: /^[a-zA-Z\s]+$/,
-  description: /^[a-zA-Z0-9\s\.\,\-\(\)\/]+$/,
   engine: /^[a-zA-Z0-9\s\.\,\-\/]+$/,
   power: /^[a-zA-Z0-9\s\.\,\-\/]+$/,
   torque: /^[a-zA-Z0-9\s\.\,\-\/]+$/,
@@ -70,7 +67,7 @@ function parseFeatures(rawValue: string): string[] {
     .filter(Boolean);
 }
 
-export function renderPublishPage(container: HTMLElement, isEditMode = false): void {
+export async function renderPublishPage(container: HTMLElement, isEditMode = false): Promise<void> {
   const user = getSessionUser();
 
   if (!user) {
@@ -94,13 +91,14 @@ export function renderPublishPage(container: HTMLElement, isEditMode = false): v
 
   const photoItems: PhotoItem[] = [];
   const errors: Record<string, string> = {};
+  let isSubmitting = false;
 
   const urlParams = new URLSearchParams(window.location.search);
   const carId = urlParams.get("id");
   let existingCar: PublishedCar | null = null;
 
   if (isEditMode && carId) {
-    existingCar = getPublishedCarById(carId);
+    existingCar = await getPublishedCarById(carId);
     if (!existingCar || existingCar.sellerId !== user.id) {
       navigateTo(ROUTES.home);
       return;
@@ -130,11 +128,7 @@ export function renderPublishPage(container: HTMLElement, isEditMode = false): v
               <div class="grid gap-4 md:grid-cols-2">
                 <div>
                   <label class="mb-2 block text-sm font-medium text-slate-700">Marca *</label>
-                  <div class="relative">
-                    <input type="text" id="make-search" placeholder="Buscar marca..." class="w-full rounded-lg border border-slate-200 px-4 py-3 focus:border-[#e76e1d] focus:outline-none focus:ring-1 focus:ring-[#e76e1d]">
-                    <input type="hidden" id="make" required>
-                    <div id="make-dropdown" class="absolute left-0 right-0 top-full z-10 mt-1 hidden max-h-48 overflow-y-auto rounded-lg border border-slate-200 bg-white shadow-lg"></div>
-                  </div>
+                  <input type="text" id="make" required placeholder="Ej: Toyota" class="w-full rounded-lg border border-slate-200 px-4 py-3 focus:border-[#e76e1d] focus:outline-none focus:ring-1 focus:ring-[#e76e1d]">
                   <p id="make-error" class="mt-1 hidden text-sm text-red-500"></p>
                 </div>
                 <div>
@@ -263,7 +257,7 @@ export function renderPublishPage(container: HTMLElement, isEditMode = false): v
               <div>
                 <label class="mb-2 block text-sm font-medium text-slate-700">Equipamiento destacado *</label>
                 <textarea id="features" rows="4" placeholder="Ej: Pantalla táctil 8, Cámara de retroceso, Bluetooth, Control de crucero" class="w-full rounded-lg border border-slate-200 px-4 py-3 focus:border-[#e76e1d] focus:outline-none focus:ring-1 focus:ring-[#e76e1d] resize-none"></textarea>
-                <p class="mt-2 text-xs text-slate-500">Separa cada item con coma o salto de línea. Mínimo ${VALIDATION_LIMITS.featuresMin} elementos.</p>
+                <p class="mt-2 text-xs text-slate-500">Separa cada item con coma o salto de línea.</p>
                 <p id="features-error" class="mt-1 hidden text-sm text-red-500"></p>
               </div>
             </div>
@@ -301,7 +295,7 @@ export function renderPublishPage(container: HTMLElement, isEditMode = false): v
               <button type="button" id="cancel-btn" class="flex-1 rounded-lg border border-slate-300 px-6 py-3 font-semibold text-slate-900 transition-colors hover:bg-slate-100">
                 Cancelar
               </button>
-              <button type="submit" class="flex-1 rounded-lg bg-[#e76e1d] px-6 py-3 font-semibold text-white transition-colors hover:bg-[#d45a0a]">
+              <button type="submit" id="publish-submit-btn" class="flex-1 rounded-lg bg-[#e76e1d] px-6 py-3 font-semibold text-white transition-colors hover:bg-[#d45a0a] disabled:cursor-not-allowed disabled:opacity-70">
                 ${isEditMode ? "Actualizar vehículo" : "Guardar y volver al inicio"}
               </button>
             </div>
@@ -326,56 +320,7 @@ export function renderPublishPage(container: HTMLElement, isEditMode = false): v
     navigateTo(ROUTES.home);
   });
 
-  const makeSearch = document.getElementById("make-search") as HTMLInputElement;
-  const makeDropdown = document.getElementById("make-dropdown") as HTMLElement;
   const makeInput = document.getElementById("make") as HTMLInputElement;
-
-  function renderMakesDropdown(filter = ""): void {
-    const filtered = MAKES.filter((make) => make.toLowerCase().includes(filter.toLowerCase()));
-
-    makeDropdown.innerHTML = filtered
-      .map(
-        (make) => `
-          <div class="make-option cursor-pointer px-4 py-2 text-sm hover:bg-slate-100" data-make="${make}">
-            ${make}
-          </div>
-        `
-      )
-      .join("");
-
-    if (filtered.length === 0) {
-      makeDropdown.innerHTML = '<div class="px-4 py-2 text-sm text-slate-500">No se encontraron marcas</div>';
-    }
-
-    makeDropdown.querySelectorAll(".make-option").forEach((option) => {
-      option.addEventListener("click", (event) => {
-        const selectedMake = (event.target as HTMLElement).getAttribute("data-make");
-        makeSearch.value = selectedMake || "";
-        makeInput.value = selectedMake || "";
-        makeDropdown.classList.add("hidden");
-        clearError("make");
-      });
-    });
-  }
-
-  makeSearch.addEventListener("focus", () => {
-    makeDropdown.classList.remove("hidden");
-    renderMakesDropdown(makeSearch.value);
-  });
-
-  makeSearch.addEventListener("input", (event) => {
-    renderMakesDropdown((event.target as HTMLInputElement).value);
-  });
-
-  document.addEventListener("click", (event) => {
-    if (!makeSearch.contains(event.target as Node) && !makeDropdown.contains(event.target as Node)) {
-      makeDropdown.classList.add("hidden");
-      if (makeSearch.value && !MAKES.includes(makeSearch.value)) {
-        makeSearch.value = "";
-        makeInput.value = "";
-      }
-    }
-  });
 
   function showError(fieldId: string, message: string): void {
     const errorElement = document.getElementById(`${fieldId}-error`);
@@ -405,13 +350,6 @@ export function renderPublishPage(container: HTMLElement, isEditMode = false): v
       return `Caracteres no permitidos en ${FIELD_LABELS[fieldId as keyof typeof FIELD_LABELS]}`;
     }
 
-    if (fieldId === "description" && value.trim().length < 20) {
-      return "La descripción debe tener al menos 20 caracteres";
-    }
-
-    if (fieldId === "features" && parseFeatures(value).length < VALIDATION_LIMITS.featuresMin) {
-      return `Ingresa al menos ${VALIDATION_LIMITS.featuresMin} elementos de equipamiento`;
-    }
 
     return null;
   }
@@ -452,13 +390,9 @@ export function renderPublishPage(container: HTMLElement, isEditMode = false): v
     });
   });
 
-  makeSearch.addEventListener("blur", () => {
-    if (makeSearch.value && !MAKES.includes(makeSearch.value)) {
+  makeInput.addEventListener("blur", () => {
+    if (!makeInput.value.trim()) {
       showError("make", "Selecciona una marca válida de la lista");
-      makeInput.value = "";
-      makeSearch.value = "";
-    } else if (!makeSearch.value) {
-      showError("make", "La marca es requerida");
     } else {
       clearError("make");
     }
@@ -631,8 +565,22 @@ export function renderPublishPage(container: HTMLElement, isEditMode = false): v
   }
 
   const form = document.getElementById("publish-form") as HTMLFormElement;
+  const submitButton = document.getElementById("publish-submit-btn") as HTMLButtonElement;
+  const submitButtonText = submitButton.textContent || (isEditMode ? "Actualizar vehículo" : "Guardar y volver al inicio");
+
+  function resetSubmitState(): void {
+    isSubmitting = false;
+    submitButton.disabled = false;
+    submitButton.textContent = submitButtonText;
+  }
+
   form.addEventListener("submit", async (event) => {
     event.preventDefault();
+    if (isSubmitting) return;
+
+    isSubmitting = true;
+    submitButton.disabled = true;
+    submitButton.textContent = isEditMode ? "Actualizando..." : "Publicando...";
 
     Object.keys(errors).forEach((fieldId) => clearError(fieldId));
 
@@ -690,11 +638,13 @@ export function renderPublishPage(container: HTMLElement, isEditMode = false): v
     const imageUrls = getUploadedPhotoUrls();
     if (imageUrls.length === 0 && (!isEditMode || (existingCar?.images || []).length === 0)) {
       showToast("Debes cargar al menos una foto del vehículo", "error");
+      resetSubmitState();
       return;
     }
 
     if (Object.keys(errors).length > 0) {
       showToast("Por favor, corrige los errores del formulario", "error");
+      resetSubmitState();
       return;
     }
 
@@ -702,11 +652,13 @@ export function renderPublishPage(container: HTMLElement, isEditMode = false): v
 
     if (photoItems.some((item) => item.status === 'uploading')) {
       showToast("Espera a que las imágenes terminen de subir antes de enviar.", "error");
+      resetSubmitState();
       return;
     }
 
     if (photoItems.some((item) => item.status === 'error')) {
       showToast("Hay un error en una o más imágenes. Elimina la imagen afectada e intenta nuevamente.", "error");
+      resetSubmitState();
       return;
     }
 
@@ -741,6 +693,7 @@ export function renderPublishPage(container: HTMLElement, isEditMode = false): v
         const success = await updatePublishedCar(existingCar.id, formData);
         if (!success) {
           showToast("Error al actualizar el vehículo", "error");
+          resetSubmitState();
           return;
         }
         showToast("Vehículo actualizado exitosamente", "success");
@@ -753,6 +706,7 @@ export function renderPublishPage(container: HTMLElement, isEditMode = false): v
     } catch (error) {
       console.error("Error al guardar vehículo:", error);
       showToast("Error al guardar el vehículo. Inténtalo de nuevo.", "error");
+      resetSubmitState();
     }
   });
 
@@ -760,7 +714,6 @@ export function renderPublishPage(container: HTMLElement, isEditMode = false): v
     const specs = normalizeCarSpecs(existingCar.specs);
 
     window.setTimeout(() => {
-      (document.getElementById("make-search") as HTMLInputElement).value = existingCar!.make;
       makeInput.value = existingCar!.make;
       (document.getElementById("model") as HTMLInputElement).value = existingCar!.model;
       (document.getElementById("year") as HTMLInputElement).value = existingCar!.year.toString();

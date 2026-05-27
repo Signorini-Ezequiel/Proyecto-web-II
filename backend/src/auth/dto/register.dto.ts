@@ -15,11 +15,11 @@ export class RegisterDto {
   @MinLength(2)
   name: string;
 
-  @ApiProperty({ example: 'seller@autopoint.com' })
+  @ApiProperty({ example: 'usuario@example.com' })
   @IsEmail()
   email: string;
 
-  @ApiProperty({ example: 'abc123' })
+  @ApiProperty({ example: 'Clave123' })
   @IsString()
   @MinLength(6)
   @Matches(/[A-Za-z]/, { message: 'password must contain at least one letter' })

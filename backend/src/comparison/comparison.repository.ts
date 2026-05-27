@@ -19,6 +19,15 @@ export class ComparisonRepository {
     });
   }
 
+  async carExists(carId: string): Promise<boolean> {
+    const car = await this.prisma.car.findFirst({
+      where: { id: carId, isPublished: true },
+      select: { id: true },
+    });
+
+    return !!car;
+  }
+
   async create(userId: string): Promise<{ id: string; carIds: string[] }> {
     const comparison = await this.prisma.comparison.create({
       data: { userId },

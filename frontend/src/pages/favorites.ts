@@ -1,16 +1,25 @@
 import { NavBar, NavBarListeners } from "../components/NavBar";
 import { navigateTo, ROUTES } from "../utils/router";
-import { CARS, type Car } from "../data/cars";
-import { getPublishedCarById } from "../services/published-cars";
+import type { PublishedCar } from "../services/published-cars";
+import { fetchPublishedCars } from "../services/published-cars";
 import { getFavorites, toggleFavorite, isFavorite } from "../services/favorites";
 import { setCurrentCarId } from "./car-detail";
 import { Icons } from "../utils/icons";
+import { getSessionUser } from "../services/auth";
 
-export function renderFavoritesPage(container: HTMLElement): void {
-  const favoriteIds = getFavorites();
-  const favoriteCars: Car[] = favoriteIds
-    .map((id) => getPublishedCarById(id) ?? CARS.find((car) => car.id === id) ?? null)
-    .filter((car): car is Car => car !== null);
+export async function renderFavoritesPage(container: HTMLElement): Promise<void> {
+  const user = getSessionUser();
+  if (!user || user.role === "seller") {
+    navigateTo(ROUTES.home);
+    return;
+  }
+
+  const favoriteIds = await getFavorites();
+  const publishedCars = await fetchPublishedCars();
+  const carsById = new Map(publishedCars.map((car) => [car.id, car]));
+  const favoriteCars: PublishedCar[] = favoriteIds
+    .map((id) => carsById.get(id) ?? null)
+    .filter((car): car is PublishedCar => car !== null);
 
   container.innerHTML = `
     <main class="min-h-screen app-bg text-slate-900 pt-20">
@@ -42,11 +51,11 @@ export function renderFavoritesPage(container: HTMLElement): void {
               </div>
             `
             : `
-              <div class="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+              <div id="favorites-grid" class="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
                 ${favoriteCars.map(car => `
                   <div class="car-card rounded-3xl border border-slate-200 bg-white/80 overflow-hidden hover:shadow-lg transition-shadow" data-car-id="${car.id}">
                     <div class="relative aspect-video bg-slate-100 group cursor-pointer">
-                      <img src="${car.images[0]}" alt="${car.make} ${car.model}" class="w-full h-full object-cover car-main-image">
+                      ${car.images[0] ? `<img src="${car.images[0]}" alt="${car.make} ${car.model}" class="w-full h-full object-cover car-main-image">` : `<div class="flex h-full w-full items-center justify-center text-sm text-slate-500">Sin imagen</div>`}
                       <div class="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors flex items-center justify-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                         <button class="car-prev-btn rounded-full bg-white/80 p-2 hover:bg-white">
                           ${Icons.chevronLeft(4)}
@@ -55,11 +64,11 @@ export function renderFavoritesPage(container: HTMLElement): void {
                           ${Icons.chevronRight(4)}
                         </button>
                       </div>
-                      <button class="favorite-btn absolute top-3 right-3 rounded-full bg-white/80 p-2 hover:bg-white" data-car-id="${car.id}">
+                      <button class="favorite-btn absolute top-3 right-3 rounded-full bg-white/80 p-2 hover:bg-white transition-transform" data-car-id="${car.id}">
                         ${isFavorite(car.id) ? Icons.heart(5, true) : Icons.heart(5, false)}
                       </button>
                       <div class="absolute bottom-2 right-2 text-xs text-white bg-black/50 px-2 py-1 rounded">
-                        <span class="car-image-counter">1</span>/${car.images.length}
+                        <span class="car-image-counter">1</span>/${Math.max(car.images.length, 1)}
                       </div>
                     </div>
                     <div class="p-6 cursor-pointer car-details">
@@ -95,25 +104,55 @@ export function renderFavoritesPage(container: HTMLElement): void {
   }
 
   // Event listeners para tarjetas
-  document.querySelectorAll('.car-card').forEach(card => {
+  document.querySelectorAll<HTMLElement>('.car-card').forEach(card => {
     const carId = card.getAttribute('data-car-id');
-    
+
     // Click en tarjeta para ver detalle
     card.addEventListener('click', (e) => {
       if (!(e.target as HTMLElement).closest('.favorite-btn, .car-prev-btn, .car-next-btn')) {
-        sessionStorage.setItem("previousPage", ROUTES.favorites);
-        setCurrentCarId(carId!, carId!.startsWith("published_"));
-        navigateTo(ROUTES.carDetail);
+        setCurrentCarId(carId!, true);
+        navigateTo(`${ROUTES.carDetail}?id=${encodeURIComponent(carId!)}&from=favorites`);
       }
     });
 
-    // Botón favorito
-    card.querySelector('.favorite-btn')?.addEventListener('click', (e) => {
-      e.stopPropagation();
-      toggleFavorite(carId!);
-      const btn = e.target as HTMLElement;
-      btn.innerHTML = isFavorite(carId!) ? Icons.heart(5, true) : Icons.heart(5, false);
-    });
+    // Botón favorito - optimistic update
+    const favoriteBtn = card.querySelector('.favorite-btn') as HTMLButtonElement;
+    if (favoriteBtn) {
+      favoriteBtn.addEventListener('click', async (e) => {
+        e.stopPropagation();
+
+        // Cambiar icono instantáneamente (optimistic)
+        const currentlyFavorite = isFavorite(carId!);
+        favoriteBtn.innerHTML = !currentlyFavorite
+          ? Icons.heart(5, true)
+          : Icons.heart(5, false);
+        favoriteBtn.style.transform = 'scale(1.2)';
+        setTimeout(() => {
+          favoriteBtn.style.transform = '';
+        }, 150);
+
+        // Sincronizar con backend en background
+        void toggleFavorite(carId!).then(() => {
+          favoriteBtn.innerHTML = isFavorite(carId!)
+            ? Icons.heart(5, true)
+            : Icons.heart(5, false);
+        });
+
+        // Si se desfavoritó, remover la tarjeta con animación
+        if (currentlyFavorite) {
+          card.style.opacity = '0';
+          card.style.transform = 'scale(0.95)';
+          setTimeout(() => {
+            card.remove();
+            // Si no hay más tarjetas, recargar página
+            const grid = document.querySelector('#favorites-grid');
+            if (grid && grid.children.length === 0) {
+              location.reload();
+            }
+          }, 300);
+        }
+      });
+    }
 
     // Carrusel en tarjeta
     let imageIndex = 0;
@@ -122,20 +161,22 @@ export function renderFavoritesPage(container: HTMLElement): void {
 
     const mainImage = card.querySelector('.car-main-image') as HTMLImageElement;
     const counter = card.querySelector('.car-image-counter');
-    
+
     const updateImage = () => {
-      mainImage.src = car.images[imageIndex];
+      if (mainImage && car.images[imageIndex]) mainImage.src = car.images[imageIndex];
       if (counter) counter.textContent = (imageIndex + 1).toString();
     };
 
     card.querySelector('.car-prev-btn')?.addEventListener('click', (e) => {
       e.stopPropagation();
+      if (car.images.length === 0) return;
       imageIndex = imageIndex > 0 ? imageIndex - 1 : car.images.length - 1;
       updateImage();
     });
 
     card.querySelector('.car-next-btn')?.addEventListener('click', (e) => {
       e.stopPropagation();
+      if (car.images.length === 0) return;
       imageIndex = imageIndex < car.images.length - 1 ? imageIndex + 1 : 0;
       updateImage();
     });

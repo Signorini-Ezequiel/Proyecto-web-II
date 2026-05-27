@@ -10,6 +10,7 @@ import type {
   UserRole,
 } from "../types/auth";
 import { ApiError, apiGet, apiPatch, apiPost } from "./api";
+import { syncFavorites, clearFavorites } from "./favorites";
 
 const SESSION_KEY = "auto_market_session";
 
@@ -70,9 +71,9 @@ function readStoredSession(): SessionUser | null {
   }
 
   try {
-    const parsed = JSON.parse(rawUser) as SessionUser;
+    const parsed: unknown = JSON.parse(rawUser);
 
-    if (!parsed.token || isTokenExpired(parsed.token)) {
+    if (!isSessionUser(parsed) || isTokenExpired(parsed.token)) {
       clearStoredSession();
       return null;
     }
@@ -85,6 +86,18 @@ function readStoredSession(): SessionUser | null {
     clearStoredSession();
     return null;
   }
+}
+
+function isSessionUser(value: unknown): value is SessionUser & { token: string } {
+  if (!value || typeof value !== "object") return false;
+  const user = value as Partial<Record<keyof SessionUser, unknown>>;
+  return (
+    typeof user.id === "string" &&
+    typeof user.name === "string" &&
+    typeof user.email === "string" &&
+    (user.role === "buyer" || user.role === "seller") &&
+    typeof user.token === "string"
+  );
 }
 
 function clearStoredSession(): void {
@@ -102,7 +115,10 @@ function getTokenPayload(token: string): { exp?: number } | null {
   try {
     const normalizedPayload = payload.replace(/-/g, "+").replace(/_/g, "/");
     const decodedPayload = atob(normalizedPayload.padEnd(Math.ceil(normalizedPayload.length / 4) * 4, "="));
-    return JSON.parse(decodedPayload) as { exp?: number };
+    const parsed: unknown = JSON.parse(decodedPayload);
+    if (!parsed || typeof parsed !== "object") return null;
+    const exp = (parsed as { exp?: unknown }).exp;
+    return typeof exp === "number" ? { exp } : {};
   } catch {
     return null;
   }
@@ -129,6 +145,9 @@ export async function login(email: string, password: string): Promise<LoginResul
     const data = await apiPost<AuthResponseDto, LoginDto>("auth/login", body);
     const sessionUser = buildSessionUser(data.user, data.accessToken);
     saveSessionUser(sessionUser);
+
+    // Sincronizar favoritos con backend
+    await syncFavorites();
 
     return { ok: true, user: sessionUser };
   } catch (error) {
@@ -182,7 +201,7 @@ export async function register(
 }
 
 export async function updateProfile(
-  userId: number,
+  userId: string,
   input: UpdateUserDto,
 ): Promise<UpdateResult> {
   try {
@@ -207,7 +226,7 @@ export async function updateProfile(
 }
 
 export async function updatePassword(
-  userId: number,
+  userId: string,
   currentPassword: string,
   newPassword: string,
   confirmPassword: string,
@@ -236,6 +255,7 @@ export async function updatePassword(
 }
 
 export function logout(): void {
+  clearFavorites();
   clearStoredSession();
   notifyAuthListeners();
 }
@@ -244,9 +264,9 @@ export function getSessionUser(): SessionUser | null {
   return readStoredSession();
 }
 
-export function getUserById(id: number | string): SessionUser | null {
+export function getUserById(id: string): SessionUser | null {
   const currentUser = getSessionUser();
-  return currentUser?.id === Number(id) ? currentUser : null;
+  return currentUser?.id === id ? currentUser : null;
 }
 
 export function getSessionToken(): string | null {
@@ -294,25 +314,6 @@ export async function restoreSession(): Promise<SessionUser | null> {
     logout();
     return null;
   }
-}
-
-export function getMockAccounts(): Array<{
-  label: string;
-  email: string;
-  password: string;
-}> {
-  return [
-    {
-      label: "Buyer demo",
-      email: "buyer@autopoint.com",
-      password: "1234",
-    },
-    {
-      label: "Seller demo",
-      email: "seller@autopoint.com",
-      password: "1234",
-    },
-  ];
 }
 
 export function getPasswordRequirements(): string {

@@ -35,7 +35,7 @@ export class ComparisonController {
     @Req() request: AuthenticatedRequest,
   ): Promise<{ id: string; carIds: string[] }> {
     this.ensureBuyer(request);
-    return this.comparisonService.getByUserId(request.user.sub.toString());
+    return this.comparisonService.getByUserId(request.user.sub);
   }
 
   @Post()
@@ -48,7 +48,7 @@ export class ComparisonController {
     @Req() request: AuthenticatedRequest,
   ): Promise<{ id: string; carIds: string[] }> {
     this.ensureBuyer(request);
-    return this.comparisonService.create(request.user.sub.toString());
+    return this.comparisonService.create(request.user.sub);
   }
 
   @Post(':id/cars/:carId')
@@ -63,7 +63,7 @@ export class ComparisonController {
     this.ensureBuyer(request);
     return this.comparisonService.addCar(
       id,
-      request.user.sub.toString(),
+      request.user.sub,
       carId,
     );
   }
@@ -79,7 +79,7 @@ export class ComparisonController {
     this.ensureBuyer(request);
     return this.comparisonService.removeCar(
       id,
-      request.user.sub.toString(),
+      request.user.sub,
       carId,
     );
   }

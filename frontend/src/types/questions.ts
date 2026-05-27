@@ -20,3 +20,31 @@ export interface PublicCarQuestion {
   answer?: string;
   answeredAt?: string;
 }
+
+export interface QuestionParticipant {
+  id: string;
+  name: string;
+  role: "buyer" | "seller";
+  avatarUrl: string | null;
+}
+
+export interface PublicQuestionMessage {
+  messageId: string;
+  threadId: string;
+  senderId: string;
+  senderRole: "buyer" | "seller";
+  carId: string;
+  content: string;
+  createdAt: string;
+  sender: QuestionParticipant;
+  pending?: boolean;
+  failed?: boolean;
+}
+
+export interface PublicQuestionThread {
+  threadId: string;
+  carId: string;
+  createdAt: string;
+  updatedAt: string;
+  messages: PublicQuestionMessage[];
+}

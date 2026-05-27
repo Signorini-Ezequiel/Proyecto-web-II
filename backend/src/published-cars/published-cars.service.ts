@@ -20,18 +20,18 @@ export class PublishedCarsService {
     return this.publishedCarsRepository.requireById(id);
   }
 
-  async findBySellerId(sellerId: number): Promise<PublishedCar[]> {
+  async findBySellerId(sellerId: string): Promise<PublishedCar[]> {
     return this.publishedCarsRepository.findBySellerId(sellerId);
   }
 
   async create(dto: CreatePublishedCarDto): Promise<PublishedCar> {
-    this.usersService.findById(dto.sellerId);
+    await this.usersService.findById(dto.sellerId);
     return this.publishedCarsRepository.create(dto);
   }
 
   async update(id: string, dto: UpdatePublishedCarDto): Promise<PublishedCar> {
     if (dto.sellerId !== undefined) {
-      this.usersService.findById(dto.sellerId);
+      await this.usersService.findById(dto.sellerId);
     }
 
     return this.publishedCarsRepository.update(id, dto);

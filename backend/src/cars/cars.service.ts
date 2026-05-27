@@ -8,19 +8,19 @@ import { CarsRepository } from './cars.repository';
 export class CarsService {
   constructor(private readonly carsRepository: CarsRepository) {}
 
-  findAll(filters: FilterCarsDto): Car[] {
+  async findAll(filters: FilterCarsDto): Promise<Car[]> {
     return this.carsRepository.findAll(filters);
   }
 
-  findById(id: string): Car {
+  async findById(id: string): Promise<Car> {
     return this.carsRepository.requireById(id);
   }
 
-  create(dto: CreateCarDto): Car {
-    return this.carsRepository.create(dto);
+  async create(dto: CreateCarDto, sellerId: string): Promise<Car> {
+    return this.carsRepository.create(dto, sellerId);
   }
 
-  getMakes(): Array<string | number> {
+  async getMakes(): Promise<Array<string | number>> {
     return this.carsRepository.getUniqueValues('make');
   }
 }

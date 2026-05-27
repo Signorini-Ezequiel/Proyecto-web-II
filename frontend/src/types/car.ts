@@ -52,13 +52,19 @@ export type UpdateCarDto = Partial<CreateCarDto> & {
 };
 
 export interface PublishedCarDto extends CarDto {
-  sellerId: number;
+  sellerId: string;
+  seller?: {
+    id: string;
+    name: string;
+    role: "buyer" | "seller";
+    avatarUrl: string | null;
+  };
   publishedAt: string;
   updatedAt: string;
 }
 
 export type CreatePublishedCarDto = CreateCarDto & {
-  sellerId: number;
+  sellerId: string;
 };
 
 export type UpdatePublishedCarDto = Partial<CreatePublishedCarDto>;

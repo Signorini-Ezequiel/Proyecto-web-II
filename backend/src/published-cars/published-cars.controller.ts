@@ -5,7 +5,6 @@ import {
   ForbiddenException,
   Get,
   Param,
-  ParseIntPipe,
   Patch,
   Post,
   Req,
@@ -43,7 +42,7 @@ export class PublishedCarsController {
   @Get('seller/:sellerId')
   @ApiOkResponse({ description: 'Lista publicaciones por vendedor.' })
   async findBySellerId(
-    @Param('sellerId', ParseIntPipe) sellerId: number,
+    @Param('sellerId') sellerId: string,
   ): Promise<PublishedCar[]> {
     try {
       return await this.publishedCarsService.findBySellerId(sellerId);

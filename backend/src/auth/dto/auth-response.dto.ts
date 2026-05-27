@@ -2,13 +2,13 @@ import { ApiProperty } from '@nestjs/swagger';
 import { UserRole } from '../../common/types/user-role';
 
 export class AuthUserDto {
-  @ApiProperty({ example: 1 })
-  id: number;
+  @ApiProperty({ example: '00000000-0000-0000-0000-000000000000' })
+  id: string;
 
   @ApiProperty({ example: 'Bruno Lopez' })
   name: string;
 
-  @ApiProperty({ example: 'buyer@autopoint.com' })
+  @ApiProperty({ example: 'usuario@example.com' })
   email: string;
 
   @ApiProperty({ enum: UserRole, example: UserRole.Buyer })

@@ -23,13 +23,13 @@ export class CreateUserDto {
   name: string;
 
   @ApiProperty({
-    example: 'seller@autopoint.com',
+    example: 'usuario@example.com',
   })
   @IsEmail()
   email: string;
 
   @ApiProperty({
-    example: 'abc123',
+    example: 'Clave123',
   })
   @IsString()
   @MinLength(6)

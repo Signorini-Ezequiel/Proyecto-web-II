@@ -43,6 +43,10 @@ export class ComparisonService {
       throw new ForbiddenException('No puedes modificar esta comparacion.');
     }
 
+    if (!(await this.comparisonRepository.carExists(carId))) {
+      throw new NotFoundException('Auto no encontrado.');
+    }
+
     if (comparison.cars.some((item) => item.carId === carId)) {
       return {
         id: comparison.id,

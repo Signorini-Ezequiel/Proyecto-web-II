@@ -38,15 +38,17 @@ enum Transmission {
 }
 
 model User {
-  id               String   @id @default(uuid()) @db.Uuid
+  id               String      @id @default(uuid()) @db.Uuid
   name             String
-  email            String   @unique
+  email            String      @unique
   password         String
-  role             UserRole @default(BUYER)
+  role             UserRole    @default(BUYER)
   avatar           String?
   refreshTokenHash String?
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
+  questionThreads  QuestionThread[]
+  questionMessages QuestionMessage[]
+  createdAt        DateTime    @default(now())
+  updatedAt        DateTime    @updatedAt
 }
 
 model Car {
@@ -75,6 +77,10 @@ model Car {
   location     String
   images       String[]
   isPublished  Boolean      @default(false)
+  questionThreads  QuestionThread[]
+  questionMessages QuestionMessage[]
+  aiAnalyses        AIAnalysis[]
+  imageAnalyses     ImageAnalysis[]
   deletedAt    DateTime?
   createdAt    DateTime     @default(now())
   updatedAt    DateTime     @updatedAt
@@ -85,6 +91,10 @@ model Favorite {
   userId    String
   carId     String
   createdAt DateTime @default(now())
+
+  @@unique([userId, carId])
+  @@index([userId])
+  @@index([carId])
 }
 
 model Question {
@@ -96,6 +106,74 @@ model Question {
   answer    String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  @@index([carId])
+  @@index([buyerId])
+  @@index([sellerId])
+}
+
+model QuestionThread {
+  id        String            @id @default(uuid()) @db.Uuid
+  carId     String            @db.Uuid
+  senderId  String            @db.Uuid
+  car       Car               @relation(fields: [carId], references: [id], onDelete: Cascade)
+  sender    User              @relation(fields: [senderId], references: [id], onDelete: Cascade)
+  messages  QuestionMessage[]
+  createdAt DateTime          @default(now())
+  updatedAt DateTime          @updatedAt
+
+  @@index([carId])
+  @@index([senderId])
+}
+
+model QuestionMessage {
+  id         String         @id @default(uuid()) @db.Uuid
+  threadId   String         @db.Uuid
+  senderId   String         @db.Uuid
+  senderRole UserRole
+  carId      String         @db.Uuid
+  content    String
+  thread     QuestionThread @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  sender     User           @relation(fields: [senderId], references: [id], onDelete: Cascade)
+  car        Car            @relation(fields: [carId], references: [id], onDelete: Cascade)
+  createdAt  DateTime       @default(now())
+
+  @@index([threadId])
+  @@index([carId])
+  @@index([senderId])
+}
+
+model AIAnalysis {
+  id        String   @id @default(uuid()) @db.Uuid
+  carId     String   @db.Uuid
+  car       Car      @relation(fields: [carId], references: [id], onDelete: Cascade)
+  dataHash  String
+  model     String
+  result    Json
+  score     Int
+  metadata  Json?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([carId])
+  @@index([dataHash])
+}
+
+model ImageAnalysis {
+  id        String   @id @default(uuid()) @db.Uuid
+  carId     String   @db.Uuid
+  car       Car      @relation(fields: [carId], references: [id], onDelete: Cascade)
+  imageHash String
+  model     String
+  images    String[]
+  result    Json
+  score     Int
+  metadata  Json?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([carId])
+  @@index([imageHash])
 }
 
 model Comparison {

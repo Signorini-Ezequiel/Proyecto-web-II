@@ -2,7 +2,7 @@ export type UserRole = "buyer" | "seller";
 export type PrismaUserRole = "BUYER" | "SELLER" | "ADMIN";
 
 export interface PublicUser {
-  id: number;
+  id: string;
   name: string;
   email: string;
   role: UserRole;

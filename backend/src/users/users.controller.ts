@@ -4,7 +4,6 @@ import {
   ForbiddenException,
   Get,
   Param,
-  ParseIntPipe,
   Patch,
   Req,
   UseGuards,
@@ -26,36 +25,36 @@ export class UsersController {
 
   @Get()
   @ApiOkResponse({ description: 'Lista usuarios sin datos sensibles.' })
-  findAll(@Req() request: AuthenticatedRequest): PublicUser[] {
+  async findAll(@Req() request: AuthenticatedRequest): Promise<PublicUser[]> {
     this.ensureAdminLikeAccess(request);
     return this.usersService.findAll();
   }
 
   @Get(':id')
   @ApiOkResponse({ description: 'Obtiene un usuario por id.' })
-  findById(
-    @Param('id', ParseIntPipe) id: number,
+  async findById(
+    @Param('id') id: string,
     @Req() request: AuthenticatedRequest,
-  ): PublicUser {
+  ): Promise<PublicUser> {
     this.ensureOwnProfile(id, request);
     return this.usersService.findById(id);
   }
 
   @Patch(':id')
   @ApiOkResponse({ description: 'Actualiza el perfil de un usuario.' })
-  update(
-    @Param('id', ParseIntPipe) id: number,
+  async update(
+    @Param('id') id: string,
     @Body() dto: UpdateUserDto,
     @Req() request: AuthenticatedRequest,
-  ): PublicUser {
+  ): Promise<PublicUser> {
     this.ensureOwnProfile(id, request);
     return this.usersService.update(id, dto);
   }
 
   @Patch(':id/password')
   @ApiOkResponse({ description: 'Actualiza la contrasena de un usuario.' })
-  updatePassword(
-    @Param('id', ParseIntPipe) id: number,
+  async updatePassword(
+    @Param('id') id: string,
     @Body() dto: UpdatePasswordDto,
     @Req() request: AuthenticatedRequest,
   ): Promise<PublicUser> {
@@ -63,7 +62,7 @@ export class UsersController {
     return this.usersService.updatePassword(id, dto);
   }
 
-  private ensureOwnProfile(id: number, request: AuthenticatedRequest): void {
+  private ensureOwnProfile(id: string, request: AuthenticatedRequest): void {
     if (request.user.sub !== id) {
       throw new ForbiddenException('No puedes modificar otro perfil.');
     }

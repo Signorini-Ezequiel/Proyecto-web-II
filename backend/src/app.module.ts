@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
+import { AiModule } from './ai/ai.module';
 import { AuthModule } from './auth/auth.module';
 import { CarQuestionsModule } from './car-questions/car-questions.module';
 import { CarsModule } from './cars/cars.module';
@@ -26,6 +27,7 @@ import { UsersModule } from './users/users.module';
     FavoritesModule,
     ComparisonModule,
     CarQuestionsModule,
+    AiModule,
   ],
   controllers: [AppController],
   providers: [AppService],

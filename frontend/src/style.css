@@ -187,18 +187,277 @@
   color: #ffe7d1 !important;
 }
 
+.questions-panel {
+  background: var(--surface);
+  border-color: rgba(226, 232, 240, 1);
+}
+
+.questions-title,
+.question-text {
+  color: var(--text);
+}
+
+.questions-meta,
+.question-unanswered {
+  color: var(--text-muted);
+}
+
+.questions-empty {
+  background: rgba(248, 250, 252, 0.92);
+  color: var(--text-muted);
+}
+
+.seller-profile-card,
+.question-compose {
+  background: rgba(255, 255, 255, 0.82);
+  border-color: rgba(226, 232, 240, 1);
+}
+
+.seller-profile-label {
+  color: #a84308;
+}
+
+.seller-profile-name,
+.chat-author {
+  color: var(--text);
+}
+
+.seller-profile-meta,
+.chat-date {
+  color: var(--text-muted);
+}
+
+.question-card {
+  background: rgba(255, 255, 255, 0.9);
+  border-color: rgba(226, 232, 240, 1);
+}
+
+.question-input {
+  background: rgba(255, 255, 255, 0.95);
+  border-color: rgba(226, 232, 240, 1);
+  color: var(--text);
+}
+
+.question-input::placeholder {
+  color: #64748b;
+}
+
+.seller-answer-card {
+  background-color: #fff4eb;
+  border-color: rgba(231, 110, 29, 0.22);
+}
+
+.seller-answer-label {
+  color: #a84308;
+}
+
+.seller-answer-text {
+  color: #334155;
+}
+
+.ai-analysis-text,
+.ai-mini-panel,
+.ai-score-badge {
+  color: var(--text);
+}
+
+.ai-mini-panel,
+.ai-score-badge {
+  background: rgba(255, 255, 255, 0.72);
+  border-color: rgba(231, 110, 29, 0.18);
+}
+
+.ai-mini-panel p,
+.ai-mini-panel li {
+  color: var(--text-muted);
+}
+
+.ai-cache-badge {
+  background: rgba(231, 110, 29, 0.12);
+  color: #a84308;
+}
+
+.ai-error {
+  background: rgba(254, 242, 242, 0.86);
+  border-color: rgba(220, 38, 38, 0.22);
+  color: #991b1b;
+}
+
+.chat-message {
+  display: flex;
+  gap: 0.75rem;
+}
+
+.chat-message.is-pending {
+  opacity: 0.72;
+}
+
+.chat-message.is-failed {
+  opacity: 0.86;
+}
+
+.chat-bubble {
+  background: rgba(248, 250, 252, 0.96);
+  color: var(--text);
+}
+
+.chat-message.is-failed .chat-bubble {
+  border: 1px solid rgba(220, 38, 38, 0.35);
+}
+
+.chat-role {
+  background: rgba(231, 110, 29, 0.12);
+  color: #a84308;
+}
+
+.avatar-image {
+  border: 2px solid rgba(231, 110, 29, 0.18);
+  background: rgba(255, 244, 235, 0.8);
+}
+
+.avatar-fallback {
+  background: linear-gradient(135deg, rgba(231, 110, 29, 0.18), rgba(255, 216, 185, 0.75));
+  border: 2px solid rgba(231, 110, 29, 0.18);
+  color: #9a3b06;
+}
+
+:root[data-theme="dark"] .questions-panel {
+  background: rgba(26, 28, 34, 0.9) !important;
+  border-color: rgba(255, 255, 255, 0.12) !important;
+}
+
+:root[data-theme="dark"] .seller-profile-card,
+:root[data-theme="dark"] .question-compose {
+  background: rgba(18, 19, 23, 0.78) !important;
+  border-color: rgba(255, 255, 255, 0.12) !important;
+}
+
+:root[data-theme="dark"] .seller-profile-label {
+  color: #ffb071 !important;
+}
+
+:root[data-theme="dark"] .seller-profile-meta,
+:root[data-theme="dark"] .chat-date {
+  color: var(--text-muted) !important;
+}
+
+:root[data-theme="dark"] .question-card {
+  background: rgba(18, 19, 23, 0.78) !important;
+  border-color: rgba(255, 255, 255, 0.12) !important;
+}
+
+:root[data-theme="dark"] .questions-empty {
+  background: rgba(255, 255, 255, 0.06) !important;
+  color: var(--text-muted) !important;
+}
+
+:root[data-theme="dark"] .question-input {
+  background: rgba(16, 17, 20, 0.72) !important;
+  border-color: rgba(255, 138, 61, 0.32) !important;
+  color: var(--text) !important;
+}
+
+:root[data-theme="dark"] .question-input::placeholder {
+  color: #b8bcc6 !important;
+}
+
 :root[data-theme="dark"] .seller-answer-card {
-  background-color: rgba(255, 138, 61, 0.14) !important;
-  border-color: rgba(255, 138, 61, 0.3) !important;
+  background-color: rgba(255, 138, 61, 0.18) !important;
+  border-color: rgba(255, 138, 61, 0.38) !important;
+}
+
+:root[data-theme="dark"] .seller-answer-label {
+  color: #ffb071 !important;
 }
 
 :root[data-theme="dark"] .seller-answer-text {
-  color: #ffe7d1 !important;
+  color: #fff1e6 !important;
+}
+
+:root[data-theme="dark"] .ai-mini-panel,
+:root[data-theme="dark"] .ai-score-badge {
+  background: rgba(255, 255, 255, 0.06) !important;
+  border-color: rgba(255, 138, 61, 0.24) !important;
+}
+
+:root[data-theme="dark"] .ai-cache-badge {
+  background: rgba(255, 138, 61, 0.18) !important;
+  color: #ffbf8c !important;
+}
+
+:root[data-theme="dark"] .ai-error {
+  background: rgba(127, 29, 29, 0.28) !important;
+  border-color: rgba(248, 113, 113, 0.28) !important;
+  color: #fecaca !important;
+}
+
+:root[data-theme="dark"] .chat-bubble {
+  background: rgba(255, 255, 255, 0.06) !important;
+  color: var(--text) !important;
+}
+
+:root[data-theme="dark"] .chat-role {
+  background: rgba(255, 138, 61, 0.18) !important;
+  color: #ffbf8c !important;
+}
+
+:root[data-theme="dark"] .avatar-image,
+:root[data-theme="dark"] .avatar-fallback {
+  border-color: rgba(255, 138, 61, 0.32) !important;
+}
+
+:root[data-theme="dark"] .avatar-fallback {
+  background: linear-gradient(135deg, rgba(255, 138, 61, 0.24), rgba(255, 138, 61, 0.1)) !important;
+  color: #fff1e6 !important;
 }
 
 :root[data-theme="dark"] .ai-opinion-card {
-  background: linear-gradient(135deg, rgba(255, 138, 61, 0.18), rgba(40, 24, 14, 0.92)) !important;
+  background: linear-gradient(135deg, rgba(255, 138, 61, 0.18), rgba(26, 28, 34, 0.94)) !important;
   border-color: rgba(255, 138, 61, 0.32) !important;
+}
+
+.ai-opinion-card {
+  background: linear-gradient(135deg, rgba(255, 244, 235, 0.96), rgba(255, 250, 245, 0.96));
+  border-color: rgba(231, 110, 29, 0.2);
+}
+
+.comparator-option {
+  background: var(--surface);
+  border-color: rgba(226, 232, 240, 1);
+  color: var(--text);
+}
+
+.comparator-option:hover {
+  border-color: rgba(231, 110, 29, 0.32);
+  background: rgba(255, 250, 245, 0.92);
+}
+
+.comparator-option.is-selected {
+  background: var(--brand-soft);
+  border-color: rgba(231, 110, 29, 0.5);
+  box-shadow: 0 14px 28px rgba(231, 110, 29, 0.12);
+}
+
+.comparator-option-title {
+  color: var(--text);
+}
+
+.comparator-option-meta {
+  color: var(--text-muted);
+}
+
+.comparator-option-price {
+  color: var(--brand);
+}
+
+:root[data-theme="dark"] .comparator-option {
+  border-color: rgba(255, 255, 255, 0.12);
+}
+
+:root[data-theme="dark"] .comparator-option:hover,
+:root[data-theme="dark"] .comparator-option.is-selected {
+  background: rgba(255, 138, 61, 0.16);
+  border-color: rgba(255, 138, 61, 0.42);
 }
 
 :root[data-theme="dark"] .from-slate-50 {

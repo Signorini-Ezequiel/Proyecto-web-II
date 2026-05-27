@@ -32,9 +32,9 @@ export class CarsController {
   @Get()
   @ApiOperation({ summary: 'Lista autos filtrados por parametros.' })
   @ApiOkResponse({ description: 'Lista autos filtrables.' })
-  findAll(@Query() filters: FilterCarsDto): Car[] {
+  async findAll(@Query() filters: FilterCarsDto): Promise<Car[]> {
     try {
-      return this.carsService.findAll(filters);
+      return await this.carsService.findAll(filters);
     } catch (error) {
       this.logAndRethrow(error);
     }
@@ -43,9 +43,9 @@ export class CarsController {
   @Get('makes')
   @ApiOperation({ summary: 'Obtiene marcas de autos disponibles.' })
   @ApiOkResponse({ description: 'Lista marcas disponibles.' })
-  getMakes(): Array<string | number> {
+  async getMakes(): Promise<Array<string | number>> {
     try {
-      return this.carsService.getMakes();
+      return await this.carsService.getMakes();
     } catch (error) {
       this.logAndRethrow(error);
     }
@@ -54,9 +54,9 @@ export class CarsController {
   @Get(':id')
   @ApiOperation({ summary: 'Obtiene un auto por su identificador.' })
   @ApiOkResponse({ description: 'Obtiene un auto por id.' })
-  findById(@Param('id') id: string): Car {
+  async findById(@Param('id') id: string): Promise<Car> {
     try {
-      return this.carsService.findById(id);
+      return await this.carsService.findById(id);
     } catch (error) {
       this.logAndRethrow(error);
     }
@@ -67,13 +67,13 @@ export class CarsController {
   @ApiBearerAuth('JWT-auth')
   @ApiOperation({ summary: 'Crea un nuevo registro de auto.' })
   @ApiCreatedResponse({ description: 'Crea un auto base.' })
-  create(@Body() dto: CreateCarDto, @Req() request: AuthenticatedRequest): Car {
+  async create(@Body() dto: CreateCarDto, @Req() request: AuthenticatedRequest): Promise<Car> {
     try {
       if (request.user.role !== UserRole.Seller) {
         throw new ForbiddenException('Solo los vendedores pueden crear autos.');
       }
 
-      return this.carsService.create(dto);
+      return await this.carsService.create(dto, request.user.sub);
     } catch (error) {
       this.logAndRethrow(error);
     }

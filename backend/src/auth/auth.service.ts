@@ -27,7 +27,7 @@ export class AuthService {
   }
 
   async login(dto: LoginDto): Promise<AuthResult> {
-    const user = this.usersService.findPrivateByEmail(dto.email);
+    const user = await this.usersService.findPrivateByEmail(dto.email);
 
     if (!user) {
       throw new UnauthorizedException('Email o contrasena incorrectos.');

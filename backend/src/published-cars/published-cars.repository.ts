@@ -4,6 +4,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import type { Car as PrismaCar, FuelType, Transmission } from '@prisma/client';
+import type { UserRole as PrismaUserRole } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreatePublishedCarDto } from './dto/create-published-car.dto';
 import { UpdatePublishedCarDto } from './dto/update-published-car.dto';
@@ -56,21 +57,30 @@ export class PublishedCarsRepository {
       orderBy: { createdAt: 'desc' },
     });
 
-    return cars.map((car) => this.normalizeCar(car));
+    const sellers = await this.getSellerMap(cars.map((car) => car.sellerId));
+    return cars.map((car) => this.normalizeCar(car, sellers.get(car.sellerId)));
   }
 
   async findById(id: string): Promise<PublishedCar | undefined> {
     const car = await this.prisma.car.findUnique({ where: { id } });
-    return car ? this.normalizeCar(car) : undefined;
+    if (!car) return undefined;
+
+    const seller = await this.prisma.user.findUnique({
+      where: { id: car.sellerId },
+      select: { id: true, name: true, role: true, avatar: true },
+    });
+
+    return this.normalizeCar(car, seller ?? undefined);
   }
 
-  async findBySellerId(sellerId: number): Promise<PublishedCar[]> {
+  async findBySellerId(sellerId: string): Promise<PublishedCar[]> {
     const cars = await this.prisma.car.findMany({
-      where: { sellerId: sellerId.toString(), isPublished: true },
+      where: { sellerId, isPublished: true },
       orderBy: { createdAt: 'desc' },
     });
 
-    return cars.map((car) => this.normalizeCar(car));
+    const sellers = await this.getSellerMap(cars.map((car) => car.sellerId));
+    return cars.map((car) => this.normalizeCar(car, sellers.get(car.sellerId)));
   }
 
   async create(dto: CreatePublishedCarDto): Promise<PublishedCar> {
@@ -81,7 +91,7 @@ export class PublishedCarsRepository {
 
     const car = await this.prisma.car.create({
       data: {
-        sellerId: dto.sellerId.toString(),
+        sellerId: dto.sellerId,
         title: `${brand} ${model}`,
         brand,
         model,
@@ -146,6 +156,7 @@ export class PublishedCarsRepository {
         dimensions: specs.dimensions,
         weight: specs.weight,
         features: specs.features,
+        sellerId: dto.sellerId ?? current.sellerId,
       },
     });
 
@@ -153,7 +164,18 @@ export class PublishedCarsRepository {
   }
 
   async delete(id: string): Promise<void> {
-    await this.prisma.car.delete({ where: { id } });
+    await this.requireById(id);
+
+    await this.prisma.$transaction([
+      this.prisma.favorite.deleteMany({ where: { carId: id } }),
+      this.prisma.comparisonCar.deleteMany({ where: { carId: id } }),
+      this.prisma.questionMessage.deleteMany({ where: { carId: id } }),
+      this.prisma.questionThread.deleteMany({ where: { carId: id } }),
+      this.prisma.question.deleteMany({ where: { carId: id } }),
+      this.prisma.aIAnalysis.deleteMany({ where: { carId: id } }),
+      this.prisma.imageAnalysis.deleteMany({ where: { carId: id } }),
+      this.prisma.car.delete({ where: { id } }),
+    ]);
   }
 
   async requireById(id: string): Promise<PublishedCar> {
@@ -166,7 +188,15 @@ export class PublishedCarsRepository {
     return car;
   }
 
-  private normalizeCar(car: PrismaCar): PublishedCar {
+  private normalizeCar(
+    car: PrismaCar,
+    seller?: {
+      id: string;
+      name: string;
+      role: PrismaUserRole;
+      avatar: string | null;
+    },
+  ): PublishedCar {
     return {
       id: car.id,
       make: car.brand,
@@ -180,7 +210,15 @@ export class PublishedCarsRepository {
       location: car.location,
       description: car.description,
       images: car.images ?? [],
-      sellerId: Number(car.sellerId),
+      sellerId: car.sellerId,
+      seller: seller
+        ? {
+            id: seller.id,
+            name: seller.name,
+            role: seller.role === 'SELLER' ? 'seller' : 'buyer',
+            avatarUrl: seller.avatar,
+          }
+        : undefined,
       publishedAt: car.createdAt.toISOString(),
       updatedAt: car.updatedAt.toISOString(),
       specs: {
@@ -195,6 +233,29 @@ export class PublishedCarsRepository {
         features: car.features ?? [],
       },
     };
+  }
+
+  private async getSellerMap(
+    sellerIds: string[],
+  ): Promise<
+    Map<
+      string,
+      { id: string; name: string; role: PrismaUserRole; avatar: string | null }
+    >
+  > {
+    const uniqueIds = Array.from(new Set(sellerIds.filter((id) => this.isUuid(id))));
+    if (uniqueIds.length === 0) return new Map();
+
+    const sellers = await this.prisma.user.findMany({
+      where: { id: { in: uniqueIds } },
+      select: { id: true, name: true, role: true, avatar: true },
+    });
+
+    return new Map(sellers.map((seller) => [seller.id, seller]));
+  }
+
+  private isUuid(value: string): boolean {
+    return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
   }
 
   private mapFuelLabel(value: string): string {

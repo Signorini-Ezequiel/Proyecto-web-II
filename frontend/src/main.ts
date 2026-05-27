@@ -104,7 +104,7 @@ async function renderRoute(): Promise<void> {
       break;
 
     case ROUTES.home:
-      renderHomePage(app);
+      await renderHomePage(app);
       break;
 
     case ROUTES.about:
@@ -112,19 +112,19 @@ async function renderRoute(): Promise<void> {
       break;
 
     case ROUTES.carDetail:
-      renderCarDetailPage(app);
+      await renderCarDetailPage(app);
       break;
 
     case ROUTES.favorites:
-      renderFavoritesPage(app);
+      await renderFavoritesPage(app);
       break;
 
     case ROUTES.comparator:
-      void renderComparatorPage(app);
+      await renderComparatorPage(app);
       break;
 
     case ROUTES.publish:
-      renderPublishPage(app);
+      await renderPublishPage(app);
       break;
 
     case ROUTES.profile:
@@ -136,13 +136,14 @@ async function renderRoute(): Promise<void> {
       break;
 
     case ROUTES.editCar:
-      renderPublishPage(app, true);
+      await renderPublishPage(app, true);
       break;
 
     default:
       navigateTo(ROUTES.landing);
   }
 
+  initializeTheme();
   bindThemeToggleButtons();
 }
 

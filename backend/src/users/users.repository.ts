@@ -3,175 +3,131 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-
-import * as bcrypt from 'bcrypt';
-
-import { BCRYPT_SALT_ROUNDS } from '../common/constants/auth.constants';
+import type { UserRole as PrismaUserRole } from '@prisma/client';
+import { PrismaService } from '../prisma/prisma.service';
 import { UserRole } from '../common/types/user-role';
-
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
-
 import type { User } from './entities/user.entity';
 
 @Injectable()
 export class UsersRepository {
-  private readonly users = new Map<number, User>();
+  constructor(private readonly prisma: PrismaService) {}
 
-  private nextId = 3;
-
-  constructor() {
-    this.seed();
+  async findAll(): Promise<User[]> {
+    const users = await this.prisma.user.findMany({ orderBy: { createdAt: 'asc' } });
+    return users.map((user) => this.mapUser(user));
   }
 
-  findAll(): User[] {
-    return [...this.users.values()];
+  async findById(id: string): Promise<User | undefined> {
+    const user = await this.prisma.user.findUnique({ where: { id } });
+    return user ? this.mapUser(user) : undefined;
   }
 
-  findById(id: number): User | undefined {
-    return this.users.get(id);
-  }
-
-  findByEmail(email: string): User | undefined {
+  async findByEmail(email: string): Promise<User | undefined> {
     const normalizedEmail = this.normalizeEmail(email);
-
-    return this.findAll().find(
-      (user) => user.email === normalizedEmail,
-    );
+    const user = await this.prisma.user.findUnique({ where: { email: normalizedEmail } });
+    return user ? this.mapUser(user) : undefined;
   }
 
-  create(dto: CreateUserDto, passwordHash: string): User {
+  async create(dto: CreateUserDto, passwordHash: string): Promise<User> {
     const email = this.normalizeEmail(dto.email);
 
-    if (this.findByEmail(email)) {
-      throw new ConflictException(
-        'Ya existe una cuenta registrada con ese email.',
-      );
+    if (await this.findByEmail(email)) {
+      throw new ConflictException('Ya existe una cuenta registrada con ese email.');
     }
 
-    const now = new Date().toISOString();
+    const created = await this.prisma.user.create({
+      data: {
+        name: dto.name.trim(),
+        email,
+        password: passwordHash,
+        role: this.toPrismaRole(dto.role),
+        avatar: dto.avatarUrl ?? null,
+      },
+    });
 
-    const user: User = {
-      id: this.nextId++,
-
-      name: dto.name.trim(),
-
-      email,
-      passwordHash,
-
-      role: dto.role,
-
-      avatarUrl: dto.avatarUrl ?? null,
-
-      createdAt: now,
-      updatedAt: now,
-    };
-
-    this.users.set(user.id, user);
-
-    return user;
+    return this.mapUser(created);
   }
 
-  update(id: number, dto: UpdateUserDto): User {
-    const user = this.requireById(id);
+  async update(id: string, dto: UpdateUserDto): Promise<User> {
+    const user = await this.requireById(id);
 
-    const updated: User = {
-      ...user,
+    const updated = await this.prisma.user.update({
+      where: { id },
+      data: {
+        name: dto.name?.trim() ?? user.name,
+        avatar: dto.avatarUrl === undefined ? user.avatarUrl : dto.avatarUrl,
+      },
+    });
 
-      name: dto.name?.trim() ?? user.name,
-
-      avatarUrl:
-        dto.avatarUrl === undefined
-          ? user.avatarUrl
-          : dto.avatarUrl,
-
-      updatedAt: new Date().toISOString(),
-    };
-
-    this.users.set(id, updated);
-
-    return updated;
+    return this.mapUser(updated);
   }
 
-  updatePassword(id: number, passwordHash: string): User {
-    const user = this.requireById(id);
+  async updatePassword(id: string, passwordHash: string): Promise<User> {
+    await this.requireById(id);
 
-    const updated: User = {
-      ...user,
+    const updated = await this.prisma.user.update({
+      where: { id },
+      data: { password: passwordHash },
+    });
 
-      passwordHash,
-
-      updatedAt: new Date().toISOString(),
-    };
-
-    this.users.set(id, updated);
-
-    return updated;
+    return this.mapUser(updated);
   }
 
-  requireById(id: number): User {
-    const user = this.findById(id);
+  async requireById(id: string): Promise<User> {
+    const user = await this.findById(id);
 
     if (!user) {
-      throw new NotFoundException(
-        'Usuario no encontrado.',
-      );
+      throw new NotFoundException('Usuario no encontrado.');
     }
 
     return user;
+  }
+
+  private mapUser(user: {
+    id: string;
+    name: string;
+    email: string;
+    password: string;
+    role: PrismaUserRole;
+    avatar: string | null;
+    createdAt: Date;
+    updatedAt: Date;
+  }): User {
+    return {
+      id: user.id,
+      name: user.name,
+      email: user.email,
+      passwordHash: user.password,
+      role: this.mapRole(user.role),
+      avatarUrl: user.avatar,
+      createdAt: user.createdAt.toISOString(),
+      updatedAt: user.updatedAt.toISOString(),
+    };
+  }
+
+  private mapRole(role: PrismaUserRole): UserRole {
+    switch (role) {
+      case 'SELLER':
+        return UserRole.Seller;
+      case 'BUYER':
+      default:
+        return UserRole.Buyer;
+    }
+  }
+
+  private toPrismaRole(role: UserRole): PrismaUserRole {
+    switch (role) {
+      case UserRole.Seller:
+        return 'SELLER';
+      case UserRole.Buyer:
+      default:
+        return 'BUYER';
+    }
   }
 
   private normalizeEmail(email: string): string {
     return email.trim().toLowerCase();
-  }
-
-  private seed(): void {
-    const now = new Date().toISOString();
-
-    const defaults: User[] = [
-      {
-        id: 1,
-
-        name: 'Bruno Lopez',
-
-        email: 'buyer@autopoint.com',
-
-        passwordHash: bcrypt.hashSync(
-          '1234',
-          BCRYPT_SALT_ROUNDS,
-        ),
-
-        role: UserRole.Buyer,
-
-        avatarUrl: null,
-
-        createdAt: now,
-        updatedAt: now,
-      },
-
-      {
-        id: 2,
-
-        name: 'Lucia Fernandez',
-
-        email: 'seller@autopoint.com',
-
-        passwordHash: bcrypt.hashSync(
-          '1234',
-          BCRYPT_SALT_ROUNDS,
-        ),
-
-        role: UserRole.Seller,
-
-        avatarUrl: null,
-
-        createdAt: now,
-        updatedAt: now,
-      },
-    ];
-
-    defaults.forEach((user) => {
-      this.users.set(user.id, user);
-    });
   }
 }

@@ -53,8 +53,14 @@ function getStoredToken(): string | null {
   if (!rawUser) return null;
 
   try {
-    const parsed = JSON.parse(rawUser) as { token?: string };
-    return parsed.token ?? null;
+    const parsed: unknown = JSON.parse(rawUser);
+    if (!parsed || typeof parsed !== "object" || !("token" in parsed)) {
+      clearStoredSession();
+      return null;
+    }
+
+    const token = (parsed as { token?: unknown }).token;
+    return typeof token === "string" ? token : null;
   } catch {
     clearStoredSession();
     return null;

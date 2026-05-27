@@ -9,6 +9,7 @@ import {
 } from "../services/auth";
 import { validateImageFiles } from "../services/upload.service";
 import { navigateTo, ROUTES } from "../utils/router";
+import { bindThemeToggleButtons } from "../utils/theme";
 
 export function renderProfilePage(container: HTMLElement): void {
   const user = getSessionUser();
@@ -100,6 +101,7 @@ export function renderProfilePage(container: HTMLElement): void {
   `;
 
   NavBarListeners();
+  bindThemeToggleButtons();
 
   const profileForm = document.querySelector<HTMLFormElement>("#profile-form");
   const profileNameInput = document.querySelector<HTMLInputElement>("#profile-name");

@@ -7,7 +7,6 @@ import {
   HttpCode,
   HttpStatus,
   Param,
-  ParseIntPipe,
   Post,
   Req,
   UseGuards,
@@ -26,61 +25,119 @@ import { FavoritesService } from './favorites.service';
 export class FavoritesController {
   constructor(private readonly favoritesService: FavoritesService) {}
 
-  @Get(':userId')
-  @ApiOkResponse({ description: 'Lista favoritos de un usuario.' })
-  findByUserId(
-    @Param('userId', ParseIntPipe) userId: number,
-    @Req() request: AuthenticatedRequest,
-  ): string[] {
-    this.ensureBuyerOwnsResource(userId, request);
-    return this.favoritesService.findByUserId(userId);
+  /**
+   * Obtiene todos los IDs de autos favoritos del usuario autenticado
+   * GET /favorites
+   */
+  @Get()
+  @ApiOkResponse({ description: 'Lista favoritos del usuario autenticado.' })
+  async findByUser(@Req() request: AuthenticatedRequest): Promise<{
+    ok: boolean;
+    count: number;
+    favorites: string[];
+  }> {
+    this.ensureBuyerPermissions(request);
+    const userId = request.user.sub;
+    const favorites = await this.favoritesService.findByUserId(userId);
+    return {
+      ok: true,
+      count: favorites.length,
+      favorites,
+    };
   }
 
-  @Post(':userId')
-  @HttpCode(HttpStatus.OK)
-  @ApiOkResponse({ description: 'Agrega un favorito.' })
-  add(
-    @Param('userId', ParseIntPipe) userId: number,
-    @Body() dto: FavoriteDto,
-    @Req() request: AuthenticatedRequest,
-  ): { ok: true; favorites: string[] } {
-    this.ensureBuyerOwnsResource(userId, request);
-    return this.favoritesService.add(userId, dto.carId);
-  }
-
-  @Post(':userId/toggle')
+  /**
+   * Alterna favorito de un auto (add/remove)
+   * POST /favorites/toggle/:carId
+   */
+  @Post('toggle/:carId')
   @HttpCode(HttpStatus.OK)
   @ApiOkResponse({ description: 'Alterna un favorito.' })
-  toggle(
-    @Param('userId', ParseIntPipe) userId: number,
-    @Body() dto: FavoriteDto,
-    @Req() request: AuthenticatedRequest,
-  ): { ok: true; selected: boolean; favorites: string[] } {
-    this.ensureBuyerOwnsResource(userId, request);
-    return this.favoritesService.toggle(userId, dto.carId);
-  }
-
-  @Delete(':userId/:carId')
-  @ApiOkResponse({ description: 'Elimina un favorito.' })
-  remove(
-    @Param('userId', ParseIntPipe) userId: number,
+  async toggle(
     @Param('carId') carId: string,
     @Req() request: AuthenticatedRequest,
-  ): { ok: true; favorites: string[] } {
-    this.ensureBuyerOwnsResource(userId, request);
-    return this.favoritesService.remove(userId, carId);
+  ): Promise<{
+    ok: boolean;
+    selected: boolean;
+    favorites: string[];
+  }> {
+    this.ensureBuyerPermissions(request);
+    const userId = request.user.sub;
+    const result = await this.favoritesService.toggle(userId, carId);
+    return result;
   }
 
-  private ensureBuyerOwnsResource(
-    userId: number,
-    request: AuthenticatedRequest,
-  ): void {
-    if (request.user.sub !== userId) {
-      throw new ForbiddenException(
-        'No puedes modificar favoritos de otro usuario.',
-      );
-    }
+  /**
+   * Agrega un auto a favoritos
+   * POST /favorites/:carId
+   */
+  @Post(':carId')
+  @HttpCode(HttpStatus.OK)
+  @ApiOkResponse({ description: 'Agrega un favorito.' })
+  async add(
+    @Param('carId') carId: string,
+    @Req() request: AuthenticatedRequest,
+  ): Promise<{
+    ok: boolean;
+    selected: boolean;
+    favorites: string[];
+  }> {
+    this.ensureBuyerPermissions(request);
+    const userId = request.user.sub;
+    const favorites = await this.favoritesService.add(userId, carId);
+    return {
+      ...favorites,
+      selected: true,
+    };
+  }
 
+  /**
+   * Elimina un auto de favoritos
+   * DELETE /favorites/:carId
+   */
+  @Delete(':carId')
+  @HttpCode(HttpStatus.OK)
+  @ApiOkResponse({ description: 'Elimina un favorito.' })
+  async remove(
+    @Param('carId') carId: string,
+    @Req() request: AuthenticatedRequest,
+  ): Promise<{
+    ok: boolean;
+    selected: boolean;
+    favorites: string[];
+  }> {
+    this.ensureBuyerPermissions(request);
+    const userId = request.user.sub;
+    const favorites = await this.favoritesService.remove(userId, carId);
+    return {
+      ...favorites,
+      selected: false,
+    };
+  }
+
+  /**
+   * Verifica si un auto está en favoritos
+   * GET /favorites/check/:carId
+   */
+  @Get('check/:carId')
+  @ApiOkResponse({ description: 'Verifica si un auto está en favoritos.' })
+  async isFavorite(
+    @Param('carId') carId: string,
+    @Req() request: AuthenticatedRequest,
+  ): Promise<{
+    ok: boolean;
+    isFavorite: boolean;
+  }> {
+    this.ensureBuyerPermissions(request);
+    const userId = request.user.sub;
+    const isFavorite = await this.favoritesService.isFavorite(userId, carId);
+    return {
+      ok: true,
+      isFavorite,
+    };
+  }
+
+  private ensureBuyerPermissions(request: AuthenticatedRequest): void {
     if (request.user.role !== UserRole.Buyer) {
       throw new ForbiddenException(
         'Solo los compradores pueden gestionar favoritos.',
