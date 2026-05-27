@@ -22,8 +22,11 @@ const DEFAULT_RATE_LIMIT_WINDOW_MS = 15 * 60 * 1000;
 const DEFAULT_RATE_LIMIT_MAX = 100;
 const DEFAULT_JWT_ACCESS_EXPIRES_IN: ms.StringValue = '15m';
 const DEFAULT_JWT_REFRESH_EXPIRES_IN: ms.StringValue = '7d';
-const DEFAULT_GROQ_MODEL = 'llama-3.3-70b-versatile';
-const DEFAULT_GROQ_VISION_MODEL = 'llama-3.2-90b-vision-preview';
+const DEFAULT_GROQ_MODEL =
+  process.env.AI_MODEL || 'meta-llama/llama-4-scout-17b-16e-instruct';
+
+const DEFAULT_GROQ_VISION_MODEL =
+  process.env.AI_VISION_MODEL || 'meta-llama/llama-4-scout-17b-16e-instruct';
 
 export function validateEnvironment(
   env: Record<string, unknown>,
