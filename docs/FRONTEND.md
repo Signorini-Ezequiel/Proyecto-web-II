@@ -1,6 +1,6 @@
 # Guia del frontend
 
-Esta guia resume como esta organizado el frontend de AutoPoint y que patrones conviene seguir al extenderlo.
+Esta guia explica como moverse dentro del frontend de AutoPoint y que patrones conviene seguir al agregar pantallas, servicios o componentes.
 
 ## Stack
 
@@ -8,23 +8,49 @@ Esta guia resume como esta organizado el frontend de AutoPoint y que patrones co
 - TypeScript para tipado.
 - Tailwind CSS 4 para utilidades de estilo.
 - CSS global propio en `src/style.css`.
+- Axios para consumir la API.
 - SPA sin framework: las paginas y componentes generan HTML como strings y luego conectan eventos del DOM.
 
-## Punto de entrada
+## Comandos
 
-El archivo `frontend/src/main.ts` hace tres cosas centrales:
+```bash
+cd frontend
+npm install
+npm run dev
+npm run build
+npm run preview
+```
 
-1. Importa estilos globales.
-2. Inicializa el tema con `initializeTheme()`.
-3. Renderiza la pagina segun `window.location.pathname`.
+Variable local recomendada:
 
-El router esta definido en `frontend/src/utils/router.ts`. No hay libreria de routing: `navigateTo(route)` usa `history.pushState()` y dispara un evento `popstate` para volver a ejecutar el render.
+```env
+VITE_API_URL=http://localhost:3000/api
+```
 
-## Flujo de render
+`frontend/src/services/api.ts` normaliza la URL para que termine en `/api`.
 
-Cada pagina exporta una funcion `render...Page(container: HTMLElement)`.
+## Punto de entrada y router
 
-Ejemplo conceptual:
+`frontend/src/main.ts` hace el bootstrap de la SPA:
+
+1. Importa `style.css`.
+2. Inicializa el tema.
+3. Decide que pagina renderizar segun `window.location.pathname`.
+4. Aplica redirecciones basicas por autenticacion.
+
+El router esta en `frontend/src/utils/router.ts`. No hay libreria externa: `navigateTo(route)` usa History API y dispara el render de la ruta nueva.
+
+Para agregar una ruta:
+
+1. Agregar la constante en `ROUTES`.
+2. Crear la pagina en `frontend/src/pages/`.
+3. Importar el renderer en `main.ts`.
+4. Agregar el `case` correspondiente.
+5. Agregar links en `NavBar` si corresponde.
+
+## Patron de paginas
+
+Cada pagina exporta una funcion que recibe el contenedor principal:
 
 ```ts
 export function renderExamplePage(container: HTMLElement): void {
@@ -34,197 +60,183 @@ export function renderExamplePage(container: HTMLElement): void {
     </main>
   `;
 
-  // Despues de insertar HTML, registrar listeners.
-  document.getElementById("example-button")?.addEventListener("click", () => {
+  document.getElementById("save-button")?.addEventListener("click", () => {
     ...
   });
 }
 ```
 
-Como se reemplaza `container.innerHTML` en cada cambio de ruta, los listeners deben registrarse despues de cada render.
-
-## Rutas y proteccion
-
-Las rutas declaradas estan en `ROUTES`:
-
-```ts
-export const ROUTES = {
-  landing: "/",
-  login: "/login",
-  register: "/register",
-  home: "/home",
-  about: "/about",
-  carDetail: "/car-detail",
-  favorites: "/favorites",
-  comparator: "/comparator",
-  publish: "/publish",
-  editCar: "/edit-car",
-  profile: "/profile",
-  changePassword: "/change-password",
-} as const;
-```
-
-La proteccion se hace en `main.ts` consultando `isAuthenticated()`. Las rutas `/home`, `/publish`, `/edit-car`, `/profile` y `/change-password` redirigen a `/login` si no hay sesion. Login y registro redirigen a `/home` si el usuario ya esta autenticado.
-
-## Roles
-
-El modelo de usuario usa dos roles:
-
-- `buyer`: comprador. Puede buscar autos, marcar favoritos, comparar y hacer preguntas.
-- `seller`: vendedor. Puede ver sus publicaciones, crear autos, editarlos, eliminarlos y responder preguntas.
-
-La barra de navegacion adapta links y etiquetas segun el rol actual.
-
-## Paginas
-
-- `landing.ts`: portada publica.
-- `login.ts`: formulario de inicio de sesion y acceso a cuentas demo.
-- `register.ts`: alta de usuario, rol y avatar opcional.
-- `home.ts`: listado principal. Para compradores muestra buscador y filtros; para vendedores muestra sus publicaciones.
-- `car-detail.ts`: detalle del auto seleccionado, galeria, opinion generada y preguntas.
-- `favorites.ts`: listado de favoritos guardados.
-- `comparator-page-v2.ts`: comparador activo importado por `main.ts`.
-- `publish-v2.ts`: formulario activo para publicar y editar autos.
-- `profile.ts`: edicion de perfil y avatar.
-- `change-password.ts`: cambio de contraseña.
-- `about.ts`: informacion institucional del proyecto.
-
-Hay versiones anteriores como `publish.ts`, `comparator.ts` y `comparator-page.ts`; actualmente `main.ts` usa las variantes `publish-v2.ts` y `comparator-page-v2.ts`.
+Regla importante: como cada navegacion reemplaza `container.innerHTML`, los listeners se registran siempre despues de insertar el HTML.
 
 ## Componentes
 
-Los componentes de `src/components/` son funciones que devuelven markup:
+Los componentes de `frontend/src/components/` son funciones que devuelven markup HTML como string.
 
-- `NavBar`: navegacion principal, responsive y dependiente del rol.
-- `Button`, `Input`, `Select`, `Card`, `StatCard`: piezas UI reutilizables.
-- `ThemeToggle`: boton de cambio de tema.
-- `Toast`: notificaciones de exito/error.
-- `CarComparisonCard`, `ComparisonTable`, `RecommendationSummary`: piezas del comparador.
-- `ErrorMessage`: mensajes de validacion.
+Convenciones:
 
-Patron recomendado:
-
-- Mantener los componentes sin estado interno persistente.
+- Mantenerlos lo mas puros posible.
 - Pasar datos por parametros.
-- Registrar eventos desde la pagina que inserta el componente, salvo componentes muy especificos.
+- No guardar estado interno persistente dentro del componente.
+- Registrar eventos desde la pagina que inserta el componente, salvo casos muy puntuales.
+- Escapar texto dinamico con helpers como `escapeHtml` cuando venga de usuarios o de la API.
 
-## Servicios
+Componentes destacados:
 
-Los servicios encapsulan reglas de negocio y persistencia:
+- `NavBar`: navegacion principal segun rol.
+- `Button`, `Input`, `Select`, `Card`, `StatCard`: piezas UI reutilizables.
+- `ThemeToggle`: cambio de tema.
+- `Toast`: notificaciones.
+- `CarComparisonCard`, `ComparisonTable`, `RecommendationSummary`: comparador.
+- `ErrorMessage`: mensajes de error/validacion.
 
-- `auth.ts`: usuarios mock, login, registro, perfil, contraseña, sesion.
-- `published-cars.ts`: publicaciones creadas por vendedores y conversion a `Car`.
-- `favorites.ts`: alta/baja de favoritos.
-- `comparison.ts`: seleccion de autos para comparar, con limite de 4.
-- `car-questions.ts`: preguntas de compradores y respuestas de vendedores.
-- `cars.ts`: ejemplo simple legacy de autos; no es el origen principal de datos del marketplace.
-- `api.ts`: helper generico `apiFetch`, preparado para futuras llamadas HTTP.
+## Servicios HTTP
 
-## Datos
+La entrada para llamadas a la API es `frontend/src/services/api.ts`.
 
-El modelo principal de autos esta en `frontend/src/data/cars.ts`:
+Ese archivo:
 
-- `CarSpecs`: ficha tecnica.
-- `Car`: entidad de vehiculo usada en listados, detalle y comparador.
-- `CARS`: autos semilla.
-- `filterCars()`: filtrado por marca, precio, combustible, transmision, ubicacion, año y busqueda textual.
+- Define `API_BASE_URL`.
+- Crea `apiClient` de Axios.
+- Inyecta el JWT guardado en la sesion.
+- Limpia la sesion ante respuestas `401`.
+- Convierte errores HTTP en `ApiError`.
+- Expone helpers como `apiGet`, `apiPost`, `apiPatch` y `apiDelete`.
 
-Las marcas disponibles para formularios estan en `frontend/src/data/makes.ts`.
+Patron recomendado para un servicio nuevo:
 
-## Comparador
+```ts
+import { apiGet, apiPost } from "./api";
+import type { Example } from "../types/example";
 
-La seleccion se guarda en `autopoint_comparison` y esta limitada a 4 autos.
+export function getExamples(): Promise<Example[]> {
+  return apiGet<Example[]>("examples");
+}
 
-El scoring esta en `frontend/src/utils/scoring.ts`:
+export function createExample(body: CreateExampleBody): Promise<Example> {
+  return apiPost<Example>("examples", body);
+}
+```
 
-- precio: menor es mejor.
-- kilometraje: menor es mejor.
-- año: mas nuevo es mejor.
-- potencia: mayor es mejor, extraida desde strings como `"140 CV"`.
-- equipamiento: mayor cantidad de features es mejor.
+Las paginas no deberian usar Axios directo. Crear o extender un servicio en `src/services/`.
 
-Cada categoria se normaliza a una escala de 0 a 20. El puntaje total es la suma de las categorias.
+## Autenticacion en frontend
 
-`summary-generator.ts` arma textos de recomendacion y opiniones para detalle/comparacion. No llama a un servicio externo de IA; genera frases localmente.
+Archivos principales:
 
-## Tema claro/oscuro
+- `frontend/src/services/auth.ts`
+- `frontend/src/services/api.ts`
+- `frontend/src/types/auth.ts`
+- `frontend/src/types/user.ts`
 
-El tema se administra en `frontend/src/utils/theme.ts`.
+La sesion se guarda con la clave `auto_market_session` en `localStorage` y `sessionStorage`. El token se lee en el interceptor de Axios y se envia como:
+
+```http
+Authorization: Bearer <token>
+```
+
+Si la API responde `401`, `api.ts` limpia la sesion y dispara `auth:unauthorized`.
+
+## Roles y permisos UI
+
+Roles usados:
+
+- `buyer`: busca autos, guarda favoritos, compara y pregunta.
+- `seller`: publica, edita, elimina y responde preguntas.
+
+El backend es la fuente real de permisos. El frontend solo adapta la UI para evitar acciones que no correspondan al rol actual.
+
+## Paginas principales
+
+- `landing.ts`: portada publica.
+- `login.ts`: inicio de sesion.
+- `register.ts`: alta de usuario.
+- `home.ts`: listado principal; cambia segun comprador/vendedor.
+- `car-detail.ts`: detalle, galeria, favoritos, preguntas y analisis IA.
+- `favorites.ts`: favoritos del comprador.
+- `comparator-page-v2.ts`: comparador activo.
+- `publish-v2.ts`: publicacion y edicion de autos.
+- `profile.ts`: perfil.
+- `change-password.ts`: cambio de contrasena.
+- `about.ts`: informacion institucional.
+
+## Uploads e imagenes
+
+Flujo esperado:
+
+1. La pagina arma un `FormData`.
+2. El servicio de uploads envia el archivo a la API.
+3. El backend devuelve rutas como `/uploads/archivo.jpg`.
+4. El frontend guarda/renderiza esas rutas.
+5. Para mostrar imagenes, usar la URL tal como llega del backend o resolverla contra `VITE_API_URL` si el contexto lo necesita.
+
+No convertir imagenes nuevas a Data URLs en frontend para persistencia de negocio. La fuente real debe ser backend/uploads o un storage externo.
+
+## IA en frontend
+
+Archivos:
+
+- `frontend/src/services/ai.ts`
+- `frontend/src/types/ai.ts`
+- `frontend/src/pages/car-detail.ts`
+- `frontend/src/pages/comparator-page-v2.ts`
+
+El servicio mantiene cache de promesas en memoria para evitar requests duplicados mientras una solicitud esta en curso. Tambien aplica cooldown del lado cliente.
+
+La UI debe:
+
+- Mostrar loading antes de llamar.
+- Deshabilitar botones mientras espera.
+- Usar `getAIErrorMessage` para errores.
+- No inventar resultados si la API falla.
+
+El shape esperado del analisis visual sigue siendo:
+
+```ts
+{
+  visualCondition: string;
+  detectedIssues: string[];
+  positiveAspects: string[];
+  confidence: number;
+}
+```
+
+## Tema y estilos
+
+El tema esta en `frontend/src/utils/theme.ts`.
 
 Funcionamiento:
 
-- Lee `autopoint-theme` desde `localStorage`.
+- Lee `autopoint-theme`.
 - Si no existe, usa `prefers-color-scheme`.
-- Aplica el tema con `document.documentElement.dataset.theme`.
-- Sincroniza todos los botones con `data-theme-toggle`.
+- Aplica `document.documentElement.dataset.theme`.
+- Sincroniza botones con `data-theme-toggle`.
 
-Los estilos del tema oscuro estan centralizados en `frontend/src/style.css` usando selectores como:
+`frontend/src/style.css` contiene Tailwind, estilos globales, tema oscuro, navbar mobile, animaciones y ajustes de componentes compartidos.
 
-```css
-:root[data-theme="dark"] .bg-white {
-  ...
-}
-```
+## Checklist para agregar una pantalla
 
-## Estilos
+1. Crear tipo(s) en `src/types/` si hacen falta.
+2. Crear servicio en `src/services/` si consume API.
+3. Crear pagina en `src/pages/`.
+4. Agregar ruta en `ROUTES`.
+5. Registrar renderer en `main.ts`.
+6. Agregar link en `NavBar` si corresponde.
+7. Manejar loading, error y empty state.
+8. Escapar texto dinamico.
+9. Probar comprador/vendedor si la pantalla depende del rol.
+10. Correr `npm run build`.
 
-El proyecto combina utilidades Tailwind en los templates con estilos globales para:
+## Checklist para tocar un servicio
 
-- variables de marca,
-- tema oscuro,
-- fondos,
-- animaciones,
-- navbar mobile,
-- ajustes de componentes compartidos.
+1. No llamar Axios directo desde paginas.
+2. Tipar request y response.
+3. Usar `ApiError` para mensajes de usuario.
+4. Evitar requests duplicados si el flujo puede dispararse varias veces.
+5. Mantener nombres de endpoints sin `/api`, porque `API_BASE_URL` ya lo incluye.
 
-Conviene usar las variables CSS globales cuando un color representa identidad o tema:
+## Problemas comunes
 
-```css
-var(--brand)
-var(--text)
-var(--text-muted)
-var(--surface)
-```
-
-## Como agregar una pagina
-
-1. Crear `frontend/src/pages/nueva-pagina.ts`.
-2. Exportar `renderNuevaPagina(container: HTMLElement): void`.
-3. Agregar la ruta en `ROUTES`.
-4. Importar el render en `main.ts`.
-5. Agregar un `case` en `renderRoute()`.
-6. Si corresponde, agregar el acceso en `NavBar`.
-7. Registrar listeners despues de asignar `container.innerHTML`.
-
-## Como agregar estado persistente
-
-1. Crear o extender un servicio en `src/services/`.
-2. Definir una clave de `localStorage` clara y prefijada.
-3. Encapsular lectura, parseo, fallback y escritura.
-4. Evitar que las paginas lean/escriban JSON directamente.
-
-Ejemplo recomendado:
-
-```ts
-const FEATURE_KEY = "autopoint_feature";
-
-export function getFeatureState(): FeatureState {
-  const stored = localStorage.getItem(FEATURE_KEY);
-
-  if (!stored) return defaultState;
-
-  try {
-    return JSON.parse(stored) as FeatureState;
-  } catch {
-    return defaultState;
-  }
-}
-```
-
-## Consideraciones para evolucionar el proyecto
-
-- Mover autenticacion y publicaciones a una API real cuando se necesiten multiples dispositivos o usuarios reales.
-- Reemplazar Data URLs de imagenes por subida a storage externo.
-- Unificar tipos legacy de `src/types/car.ts` y `src/data/cars.ts`.
-- Agregar tests unitarios para servicios (`auth`, `comparison`, `published-cars`) antes de cambiar reglas de negocio.
-- Evitar duplicar paginas antiguas cuando se consoliden las variantes `v2`.
+- Si aparecen `401`, revisar token guardado y que el backend este usando el mismo `JWT_SECRET`.
+- Si no cargan imagenes, revisar que el backend sirva `/uploads` y que la URL no apunte al frontend.
+- Si falla CORS, revisar `CORS_ORIGIN` en backend/Railway.
+- Si Netlify devuelve 404 en rutas internas, revisar `frontend/public/_redirects` y `netlify.toml`.
