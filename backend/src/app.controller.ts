@@ -22,4 +22,16 @@ export class AppController {
   getHello(): AppHealthResponse {
     return this.appService.getHello();
   }
+
+  @Get('test-image-url')
+  @ApiOperation({ summary: 'Devuelve una URL absoluta de imagen subida.' })
+  @ApiOkResponse({
+    description: 'URL absoluta de una imagen disponible para probar vision.',
+  })
+  async getTestImageUrl(): Promise<{
+    imageUrl: string | null;
+    exists: boolean;
+  }> {
+    return this.appService.getTestImageUrl();
+  }
 }
